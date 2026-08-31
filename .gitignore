@@ -16,6 +16,7 @@ dist-ssr
 !.env.example
 server/node_modules
 server/dist
+server/tsconfig.tsbuildinfo
 
 .claude/
 
@@ -32,3 +33,7 @@ server/dist
 
 .vercel
 .env*
+
+# Listas de precios reales del negocio: no van al repo
+*.xlsx
+*.xls

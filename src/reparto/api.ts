@@ -170,6 +170,33 @@ export async function deleteCatalogProduct(token: string, code: string): Promise
   await request(`/catalog/${encodeURIComponent(code)}`, { method: 'DELETE' }, token);
 }
 
+export interface CatalogImportPreview {
+  rows: CatalogProduct[];
+  skipped: number;
+  total: number;
+  fileName: string;
+}
+
+export async function previewCatalogImport(token: string, file: File): Promise<CatalogImportPreview> {
+  if (!API_URL) throw new Error('El servidor de reparto no está configurado (falta VITE_API_URL).');
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${API_URL}/catalog/import/preview`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `Error ${res.status}`);
+  }
+  return res.json() as Promise<CatalogImportPreview>;
+}
+
+export async function confirmCatalogImport(token: string, rows: CatalogProduct[]): Promise<{ imported: number }> {
+  return request('/catalog/import/confirm', { method: 'POST', body: JSON.stringify({ rows }) }, token);
+}
+
 // ─── Rutas del día ──────────────────────────────────────────────────────────
 
 export async function fetchRouteStops(token: string, date: string, courierId?: string): Promise<RouteStop[]> {

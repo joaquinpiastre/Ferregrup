@@ -5,6 +5,7 @@ import { authRouter } from './routes/auth.js';
 import { streetOrdersRouter } from './routes/streetOrders.js';
 import { clientsRouter } from './routes/clients.js';
 import { catalogRouter } from './routes/catalog.js';
+import { catalogImportRouter } from './routes/catalogImport.js';
 import { routeStopsRouter } from './routes/routeStops.js';
 import { shiftsRouter } from './routes/shifts.js';
 import { paymentsRouter } from './routes/payments.js';
@@ -16,13 +17,16 @@ import { startGt06Server } from './gpsTracker/gt06.js';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// El límite por defecto (100kb) queda corto para confirmar catálogos grandes
+// importados desde Excel (miles de filas).
+app.use(express.json({ limit: '15mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use(authRouter);
 app.use(streetOrdersRouter);
 app.use(clientsRouter);
 app.use(catalogRouter);
+app.use(catalogImportRouter);
 app.use(routeStopsRouter);
 app.use(shiftsRouter);
 app.use(paymentsRouter);
