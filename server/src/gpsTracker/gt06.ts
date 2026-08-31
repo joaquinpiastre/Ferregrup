@@ -127,6 +127,11 @@ export function startGt06Server(port: number): void {
     });
     socket.on('error', () => {});
   });
+  server.on('error', (err) => {
+    // Nunca debe tirar abajo el proceso: este listener es secundario (trackers
+    // físicos opcionales) y no puede afectar la disponibilidad de la API principal.
+    console.error(`No se pudo iniciar el servidor GT06 en :${port} —`, err.message);
+  });
   server.listen(port, () => {
     console.log(`Servidor GT06 (trackers GPS) escuchando en :${port}`);
   });

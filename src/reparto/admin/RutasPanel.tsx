@@ -36,7 +36,7 @@ export default function RutasPanel({ token }: Props) {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    fetchStaffList().then((list) => {
+    fetchStaffList(token).then((list) => {
       const reps = list.filter((s) => s.role === 'repartidor');
       setCouriers(reps);
       setCourierId((prev) => prev || reps[0]?.id || '');

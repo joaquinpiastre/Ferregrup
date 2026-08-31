@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/client.js';
-import { signToken, type StaffRole } from '../auth.js';
+import { requireAuth, signToken, type StaffRole } from '../auth.js';
 
 export const authRouter = Router();
 
-authRouter.get('/staff', async (_req, res) => {
+// Lista de repartidores/mostrador para selects internos (asignar rutas, trackers, etc).
+// Requiere sesión: no se expone públicamente el directorio de usuarios.
+authRouter.get('/staff', requireAuth, async (_req, res) => {
   const { rows } = await pool.query(
     `select id, name, role from staff where active = true order by role, name`
   );

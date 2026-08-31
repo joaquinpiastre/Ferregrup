@@ -1,20 +1,42 @@
 import { useEffect, useState } from 'react';
-import { Plus, Truck, Store, Edit2 } from 'lucide-react';
+import { Plus, Truck, Store, ShieldCheck, Edit2 } from 'lucide-react';
 import { createTeamMember, fetchTeam, updateTeamMember } from '../api';
-import type { TeamMember } from '../types';
+import type { StaffRole, TeamMember } from '../types';
 
 interface Props {
   token: string;
+  currentUserId: string;
+  canManageSuperadmin?: boolean;
 }
 
-const emptyForm = () => ({ id: '', name: '', pin: '', role: 'repartidor' as 'admin' | 'repartidor' });
+const ROLE_LABEL: Record<StaffRole, string> = {
+  superadmin: 'Superadmin',
+  admin: 'Mostrador',
+  repartidor: 'Repartidor',
+};
 
-export default function EquipoPanel({ token }: Props) {
+const ROLE_ICON: Record<StaffRole, typeof Truck> = {
+  superadmin: ShieldCheck,
+  admin: Store,
+  repartidor: Truck,
+};
+
+const ROLE_COLOR: Record<StaffRole, string> = {
+  superadmin: '#f472b6',
+  admin: '#60a5fa',
+  repartidor: '#FFE000',
+};
+
+const emptyForm = () => ({ id: '', name: '', pin: '', role: 'repartidor' as StaffRole });
+
+export default function EquipoPanel({ token, currentUserId, canManageSuperadmin = false }: Props) {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState('');
+
+  const availableRoles: StaffRole[] = canManageSuperadmin ? ['repartidor', 'admin', 'superadmin'] : ['repartidor', 'admin'];
 
   function refresh() {
     fetchTeam(token).then(setTeam).catch(() => {});
@@ -39,7 +61,7 @@ export default function EquipoPanel({ token }: Props) {
   async function save() {
     try {
       if (editing) {
-        await updateTeamMember(token, editing.id, { name: form.name, pin: form.pin || undefined });
+        await updateTeamMember(token, editing.id, { name: form.name, pin: form.pin || undefined, role: form.role });
       } else {
         if (!form.id.trim() || !form.name.trim() || !/^\d{4}$/.test(form.pin)) {
           setError('Completá usuario, nombre y un PIN de 4 dígitos.');
@@ -82,15 +104,17 @@ export default function EquipoPanel({ token }: Props) {
               <label>PIN {editing ? '(dejar vacío para no cambiarlo)' : ''}</label>
               <input className="input-field" inputMode="numeric" maxLength={4} value={form.pin} onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 4) })} />
             </div>
-            {!editing && (
-              <div>
-                <label>Rol</label>
-                <select className="input-field" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as 'admin' | 'repartidor' })}>
-                  <option value="repartidor">Repartidor</option>
-                  <option value="admin">Mostrador</option>
-                </select>
-              </div>
-            )}
+            <div>
+              <label>Rol</label>
+              <select
+                className="input-field"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value as StaffRole })}
+                disabled={!!editing && editing.id === currentUserId}
+              >
+                {availableRoles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+              </select>
+            </div>
           </div>
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
@@ -101,23 +125,28 @@ export default function EquipoPanel({ token }: Props) {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {team.map((m) => (
-          <div key={m.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 14, opacity: m.active ? 1 : 0.5 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {m.role === 'repartidor' ? <Truck size={16} color="#FFE000" /> : <Store size={16} color="#60a5fa" />}
-              <div>
-                <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{m.name}</div>
-                <div style={{ color: '#888', fontSize: 12 }}>@{m.id} · {m.role === 'repartidor' ? 'Repartidor' : 'Mostrador'}{!m.active ? ' · Inactivo' : ''}</div>
+        {team.map((m) => {
+          const Icon = ROLE_ICON[m.role];
+          return (
+            <div key={m.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 14, opacity: m.active ? 1 : 0.5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Icon size={16} color={ROLE_COLOR[m.role]} />
+                <div>
+                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{m.name}</div>
+                  <div style={{ color: '#888', fontSize: 12 }}>@{m.id} · {ROLE_LABEL[m.role]}{!m.active ? ' · Inactivo' : ''}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={() => openEdit(m)}><Edit2 size={13} /></button>
+                {m.id !== currentUserId && (
+                  <button className={m.active ? 'btn-danger' : 'btn-primary'} style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => toggleActive(m)}>
+                    {m.active ? 'Desactivar' : 'Activar'}
+                  </button>
+                )}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={() => openEdit(m)}><Edit2 size={13} /></button>
-              <button className={m.active ? 'btn-danger' : 'btn-primary'} style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => toggleActive(m)}>
-                {m.active ? 'Desactivar' : 'Activar'}
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

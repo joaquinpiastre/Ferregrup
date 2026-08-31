@@ -11,6 +11,7 @@ import type {
   Shift,
   ShiftStop,
   Staff,
+  StaffRole,
   StreetOrder,
   StreetOrderStatus,
   TeamMember,
@@ -58,8 +59,8 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
 
-export async function fetchStaffList(): Promise<Staff[]> {
-  const data = await request<{ staff: Staff[] }>('/staff');
+export async function fetchStaffList(token: string): Promise<Staff[]> {
+  const data = await request<{ staff: Staff[] }>('/staff', {}, token);
   return data.staff;
 }
 
@@ -254,11 +255,11 @@ export async function fetchTeam(token: string): Promise<TeamMember[]> {
   return data.staff;
 }
 
-export async function createTeamMember(token: string, member: { id: string; name: string; pin: string; role: 'admin' | 'repartidor' }): Promise<void> {
+export async function createTeamMember(token: string, member: { id: string; name: string; pin: string; role: StaffRole }): Promise<void> {
   await request('/team', { method: 'POST', body: JSON.stringify(member) }, token);
 }
 
-export async function updateTeamMember(token: string, id: string, patch: { name?: string; pin?: string; active?: boolean }): Promise<void> {
+export async function updateTeamMember(token: string, id: string, patch: { name?: string; pin?: string; active?: boolean; role?: StaffRole }): Promise<void> {
   await request(`/team/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) }, token);
 }
 

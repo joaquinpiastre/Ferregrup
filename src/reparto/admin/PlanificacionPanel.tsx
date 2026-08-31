@@ -33,7 +33,7 @@ export default function PlanificacionPanel({ token }: Props) {
   const [message, setMessage] = useState('');
 
   useEffect(() => subscribeLists(token, setLists), [token]);
-  useEffect(() => { fetchStaffList().then((list) => setCouriers(list.filter((s) => s.role === 'repartidor'))); }, []);
+  useEffect(() => { fetchStaffList(token).then((list) => setCouriers(list.filter((s) => s.role === 'repartidor'))); }, [token]);
   useEffect(() => { fetchClients(token).then(setClients).catch(() => {}); }, [token]);
 
   async function loadListClients(id: string) {

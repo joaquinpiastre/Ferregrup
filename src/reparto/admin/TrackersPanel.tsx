@@ -31,12 +31,12 @@ export default function TrackersPanel({ token }: Props) {
 
   useEffect(() => subscribeTrackers(token, setTrackers), [token]);
   useEffect(() => {
-    fetchStaffList().then((list) => {
+    fetchStaffList(token).then((list) => {
       const reps = list.filter((s) => s.role === 'repartidor');
       setCouriers(reps);
       setCourierId((prev) => prev || reps[0]?.id || '');
     });
-  }, []);
+  }, [token]);
 
   const courierName = useMemo(() => (id: string) => couriers.find((c) => c.id === id)?.name ?? id, [couriers]);
 

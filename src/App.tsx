@@ -14,6 +14,7 @@ import Rutas from './pages/Rutas';
 import LoginScreen from './reparto/LoginScreen';
 import AdminShell from './reparto/admin/AdminShell';
 import RepartidorShell from './reparto/repartidor/RepartidorShell';
+import EquipoPanel from './reparto/admin/EquipoPanel';
 import { apiEnabled, loadSession, saveSession } from './reparto/api';
 import type { Session } from './reparto/types';
 import './index.css';
@@ -68,6 +69,15 @@ export default function App() {
       case 'clientes':   return <Clientes data={data} onChange={setData} />;
       case 'ventas':     return <Ventas data={data} onChange={setData} />;
       case 'rutas':      return <Rutas data={data} onChange={setData} />;
+      case 'usuarios':   return (
+        <div style={{ padding: '28px 32px' }}>
+          <div style={{ marginBottom: 24 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Usuarios</h1>
+            <p style={{ color: '#666', fontSize: 14 }}>Altas y roles de todo el sistema: superadmin, mostrador y repartidor.</p>
+          </div>
+          <EquipoPanel token={session.token} currentUserId={session.staff.id} canManageSuperadmin />
+        </div>
+      );
     }
   };
 

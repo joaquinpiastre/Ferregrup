@@ -35,6 +35,8 @@ app.listen(config.port, () => {
   console.log(`Ferregrup server escuchando en :${config.port}`);
 });
 
-if (config.gt06Port) {
+if (config.gt06Port && config.gt06Port !== config.port) {
   startGt06Server(config.gt06Port);
+} else if (config.gt06Port) {
+  console.error(`GT06_PORT (${config.gt06Port}) coincide con el puerto de la API — no se inicia el servidor de trackers para evitar el conflicto.`);
 }

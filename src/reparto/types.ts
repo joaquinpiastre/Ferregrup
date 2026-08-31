@@ -119,7 +119,7 @@ export interface Payment {
 export interface TeamMember {
   id: string;
   name: string;
-  role: 'admin' | 'repartidor';
+  role: StaffRole;
   active: boolean;
 }
 
