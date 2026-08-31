@@ -18,12 +18,15 @@ El **mapa en vivo** (panel admin) funciona hoy por navegador: mientras el repart
 
 El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (`server/src/gpsTracker/gt06.ts`, pantalla admin → Trackers) pero el servidor TCP que habla ese protocolo **está deshabilitado en producción por ahora**: al ponerlo en el mismo servicio de Railway que sirve la API HTTP, el proxy TCP que Railway arma para exponerlo entró en conflicto con el puerto de la propia API y tumbó todo el backend un rato. Para reactivarlo correctamente hay que correr ese listener en un servicio de Railway aparte (con su propio proxy TCP), no en `ferregrup-api`. Mientras tanto, la sección Trackers del panel admin sigue funcionando para registrar IMEIs, pero ningún dispositivo real puede conectarse todavía.
 
+### Importación de catálogo desde Excel
+
+Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin/superadmin pueden importar; repartidor solo puede buscar en el catálogo ya cargado.
+
 ### Qué se dejó afuera a propósito
 
 Se tomó como referencia la app real de reparto de la pinturería (Expo + Express, carpeta `App Del Centro/delcentro-app` en esta misma compu) pero no se portó todo:
 
 - **Captura de foto/firma en la entrega** — en la app original ese flujo existe pero está desconectado (código huérfano, nunca se llega a usar en la práctica), así que no se portó.
-- **Importación de catálogo desde Excel** — el catálogo de reparto se carga/edita a mano desde el panel admin en su lugar.
 - **Reportes mensuales guardados / PDF** — no implementado por ahora.
 - **Arrastrar y soltar para reordenar la ruta** — se implementó con botones subir/bajar en su lugar (mismo resultado, sin la complejidad del drag-and-drop).
 
