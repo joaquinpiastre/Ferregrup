@@ -10,17 +10,13 @@ Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` e
 - **`admin`** — panel de mostrador del módulo de reparto, calcado del panel admin de "Reparto Del Centro", con la misma distribución de secciones: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, Equipo (alta/baja de usuarios admin/repartidor) y Trackers (GPS físico).
 - **`repartidor`** — panel del repartidor, calcado de la sección repartidor de esa misma app: inicio con turno (iniciar/terminar), mi ruta del día (navegar por Google Maps, marcar visitado/problema), pedido en la calle, clientes, catálogo, cobros.
 
-El seed inicial (`npm run seed` dentro de `server/`) crea tres usuarios de ejemplo — `superadmin`, `mostrador` (rol admin) y `repartidor` — todos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción** (podés hacerlo vos mismo desde el panel admin → Equipo, o directo en la tabla `staff`).
+El seed inicial (`npm run seed` dentro de `server/`) crea tres usuarios de ejemplo — `superadmin`, `mostrador` (rol admin) y `repartidor` — todos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción**. El login es por usuario + PIN (sin listas desplegables): cualquier `superadmin` puede crear, editar o desactivar cuentas de cualquier rol desde **Usuarios** (en el sidebar de superadmin); un `admin`/mostrador puede hacer lo mismo pero solo para cuentas admin/repartidor, nunca para superadmin — esto se valida también del lado del servidor, no solo ocultando el botón.
 
 ### Mapa en vivo y trackers GPS
 
-Hay dos formas de que un repartidor aparezca en "Mapa en vivo" (panel admin):
+El **mapa en vivo** (panel admin) funciona hoy por navegador: mientras el repartidor tiene un turno activo, la app le pide permiso de ubicación al celular y manda su posición cada 20s. No requiere ningún hardware — funciona apenas el repartidor abre la app en su teléfono y arranca el turno.
 
-1. **Automático por navegador**: mientras el repartidor tiene un turno activo, la app le pide permiso de ubicación al celular y manda su posición cada 20s. No requiere ningún hardware — funciona apenas el repartidor abre la app en su teléfono y arranca el turno.
-2. **Tracker GPS físico (protocolo GT06)**: para vehículos con un tracker GPS dedicado (los típicos económicos tipo GT06/TK103). El backend corre un servidor TCP aparte para hablar el protocolo binario de estos dispositivos. Se configuran así:
-   - Endpoint TCP público: `altaria.proxy.rlwy.net:34078` (cargar esa IP/host y puerto en la configuración del tracker, según las instrucciones del fabricante — suele ser un SMS o una app de configuración).
-   - Una vez que el tracker se conecta, se lo registra desde el panel admin → Trackers, cargando su IMEI (15 dígitos) y asignándolo a un repartidor.
-   - **Importante**: el protocolo GT06 tiene variantes según el fabricante. La implementación (`server/src/gpsTracker/gt06.ts`) sigue la variante más común y fue probada con paquetes sintéticos (login + posición), pero nunca contra un dispositivo físico real — puede necesitar ajustes menores de bytes/offsets según el modelo exacto que se compre.
+El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (`server/src/gpsTracker/gt06.ts`, pantalla admin → Trackers) pero el servidor TCP que habla ese protocolo **está deshabilitado en producción por ahora**: al ponerlo en el mismo servicio de Railway que sirve la API HTTP, el proxy TCP que Railway arma para exponerlo entró en conflicto con el puerto de la propia API y tumbó todo el backend un rato. Para reactivarlo correctamente hay que correr ese listener en un servicio de Railway aparte (con su propio proxy TCP), no en `ferregrup-api`. Mientras tanto, la sección Trackers del panel admin sigue funcionando para registrar IMEIs, pero ningún dispositivo real puede conectarse todavía.
 
 ### Qué se dejó afuera a propósito
 
@@ -49,7 +45,7 @@ Cualquiera de estos se puede sumar después si hace falta.
   Para desarrollo local: copiar `server/.env.example` a `server/.env` con una base Postgres propia (o un proxy TCP temporal a la de Railway), correr `npm run migrate && npm run seed` y luego `npm run dev`.
 - **Frontend** — Vercel, proyecto `ferregrup`: **https://ferregrup.vercel.app** — este es el link para usar desde el celular, tablet o cualquier PC sin depender de tu compu. Conectado al repo de GitHub: **cada push a `main` lo redespliega solo**. La variable `VITE_API_URL` está cargada en Vercel (Project Settings → Environment Variables) apuntando al backend de Railway.
   - Para forzar un deploy manual sin pasar por git: `vercel --prod` desde la raíz del proyecto.
-  - Nota: el frontend también sigue corriendo en Railway (`ferregrup-web`, `https://ferregrup-web-production.up.railway.app`) porque así se desplegó originalmente antes de mudarlo a Vercel; quedó sin usar, no se está actualizando más. Se puede eliminar ese servicio de Railway cuando quieras (`railway service remove ferregrup-web` o desde el dashboard) — no se borró automáticamente por las dudas.
+  - Nota: el frontend viejo en Railway (`ferregrup-web`, `https://ferregrup-web-production.up.railway.app`) quedó desactualizado y **ya no funciona** (tiene el login viejo, que dependía de un endpoint que ahora requiere sesión). No se borró automáticamente por las dudas, pero conviene eliminarlo (`railway service remove ferregrup-web` o desde el dashboard) para no confundir a nadie que entre ahí por error.
 
 ---
 
