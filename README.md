@@ -124,5 +124,3 @@ export default defineConfig([
   },
 ])
 ```
-#   F e r r e g r u p  
- 
