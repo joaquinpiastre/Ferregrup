@@ -124,11 +124,16 @@ catalogImportRouter.post(
       res.status(400).json({ error: 'Subí un archivo .xlsx.' });
       return;
     }
+    const workbook = new ExcelJS.Workbook();
     try {
-      const workbook = new ExcelJS.Workbook();
       // exceljs's bundled types predate Node's current generic Buffer<ArrayBufferLike>;
       // the runtime value is a perfectly normal Buffer.
       await workbook.xlsx.load(req.file.buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    } catch {
+      res.status(400).json({ error: 'El archivo no es un Excel (.xlsx) válido.' });
+      return;
+    }
+    try {
       const { rows, skipped } = parseWorkbook(workbook);
       if (rows.length === 0) {
         res.status(400).json({ error: 'No se encontraron productos válidos en el archivo.' });
