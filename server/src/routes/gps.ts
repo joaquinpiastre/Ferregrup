@@ -32,7 +32,7 @@ gpsRouter.post('/gps/update', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-gpsRouter.get('/gps/live', requireAuth, requireRole('admin', 'superadmin'), async (_req, res) => {
+gpsRouter.get('/gps/live', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
     `select distinct on (courier_id)
        courier_id as "courierId", s.name as "courierName", lat, lng, timestamp_ms as "timestampMs"

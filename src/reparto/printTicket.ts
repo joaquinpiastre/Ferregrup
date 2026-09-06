@@ -1,3 +1,4 @@
+import { downloadHtmlAsPdf, printHtml } from './docPrint';
 import type { StreetOrder } from './types';
 
 function fmtDate(ts: number): string {
@@ -85,11 +86,9 @@ function ticketHtml(order: StreetOrder): string {
 }
 
 export function printStreetOrder(order: StreetOrder): void {
-  const html = ticketHtml(order);
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 400);
+  printHtml(ticketHtml(order));
+}
+
+export async function downloadStreetOrderPdf(order: StreetOrder): Promise<void> {
+  await downloadHtmlAsPdf(ticketHtml(order), `remito-${order.streetKey || order.id}`);
 }

@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from './config.js';
 
-export type StaffRole = 'superadmin' | 'admin' | 'repartidor';
+export type StaffRole = 'admin' | 'repartidor';
 
 export interface AuthClaims {
   sub: string;

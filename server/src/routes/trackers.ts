@@ -5,7 +5,7 @@ import { pool } from '../db/client.js';
 
 export const trackersRouter = Router();
 
-trackersRouter.get('/trackers', requireAuth, requireRole('admin', 'superadmin'), async (_req, res) => {
+trackersRouter.get('/trackers', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
     `select imei, courier_id as "courierId", name, active, last_contact_ms as "lastContact"
      from trackers order by active desc, name`
@@ -19,7 +19,7 @@ const trackerSchema = z.object({
   name: z.string().trim().min(1),
 });
 
-trackersRouter.post('/trackers', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+trackersRouter.post('/trackers', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = trackerSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' });
@@ -34,7 +34,7 @@ trackersRouter.post('/trackers', requireAuth, requireRole('admin', 'superadmin')
   res.json({ ok: true });
 });
 
-trackersRouter.delete('/trackers/:imei', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+trackersRouter.delete('/trackers/:imei', requireAuth, requireRole('admin'), async (req, res) => {
   const del = await pool.query(`update trackers set active = false where imei = $1`, [req.params.imei]);
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Tracker no encontrado.' });

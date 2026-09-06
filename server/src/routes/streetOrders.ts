@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
+import { logActivity } from '../activityLog.js';
 
 export const streetOrdersRouter = Router();
 
@@ -132,6 +133,7 @@ streetOrdersRouter.patch('/street-orders/:id/status', requireAuth, async (req, r
   } else {
     await pool.query(`update street_orders set status = $2 where id = $1`, [req.params.id, status]);
   }
+  await logActivity(req.user!, 'street_order.status', `Cambió un pedido en calle a estado "${status}"`);
   res.json({ ok: true });
 });
 
@@ -148,7 +150,7 @@ streetOrdersRouter.patch('/street-orders/:id/notes', requireAuth, async (req, re
   res.json({ ok: true });
 });
 
-streetOrdersRouter.delete('/street-orders/:id', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+streetOrdersRouter.delete('/street-orders/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const del = await pool.query(`delete from street_orders where id = $1`, [req.params.id]);
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Pedido no encontrado.' });

@@ -14,6 +14,11 @@ alter table staff drop constraint if exists staff_role_check;
 update staff set role = 'admin' where role = 'mostrador';
 alter table staff add constraint staff_role_check check (role in ('superadmin', 'admin', 'repartidor'));
 
+-- migration: se consolidan los roles a solo 2 — 'admin' (con todo lo del ex superadmin) y 'repartidor'
+alter table staff drop constraint if exists staff_role_check;
+update staff set role = 'admin' where role = 'superadmin';
+alter table staff add constraint staff_role_check check (role in ('admin', 'repartidor'));
+
 create table if not exists street_orders (
   id text primary key,
   street_key text not null,
@@ -168,3 +173,84 @@ create table if not exists delivery_list_clients (
   order_num integer not null default 0,
   primary key (list_id, client_id)
 );
+
+-- ─── Ventas (cargos a cuenta de un cliente, asignados a un repartidor) ──────────
+-- Junto con "payments" (cobros) arman la cuenta corriente del cliente y el
+-- avance de los objetivos de venta/cobro de cada repartidor.
+
+create table if not exists sales (
+  id text primary key,
+  client_id text references clients(id),
+  client_name text not null,
+  courier_id text not null references staff(id),
+  courier_name text not null,
+  amount numeric(12,2) not null,
+  description text,
+  created_at_ms bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_sales_client on sales (client_id);
+create index if not exists idx_sales_courier_created on sales (courier_id, created_at_ms desc);
+
+-- ─── Objetivos de repartidores (semanales / mensuales) ──────────────────────────
+
+create table if not exists courier_goals (
+  id text primary key,
+  courier_id text not null references staff(id),
+  courier_name text not null,
+  period_type text not null check (period_type in ('semanal', 'mensual')),
+  period_start date not null,
+  target_amount numeric(12,2) not null,
+  metric text not null default 'ambos' check (metric in ('cobros', 'ventas', 'ambos')),
+  created_at timestamptz not null default now(),
+  unique (courier_id, period_type, period_start)
+);
+
+-- ─── Proveedores y deudas con proveedores ───────────────────────────────────────
+
+create table if not exists suppliers (
+  id text primary key,
+  name text not null,
+  phone text,
+  notes text,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists supplier_debts (
+  id text primary key,
+  supplier_id text not null references suppliers(id),
+  supplier_name text not null,
+  invoice_number text,
+  amount numeric(12,2) not null,
+  issue_date date,
+  due_date date,
+  status text not null default 'pendiente' check (status in ('pendiente', 'pagado')),
+  payment_method text check (payment_method in ('efectivo', 'transferencia', 'cheque', 'echeq', 'otro')),
+  echeq_number text,
+  echeq_date date,
+  paid_at_ms bigint,
+  notes text,
+  created_at_ms bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_supplier_debts_supplier on supplier_debts (supplier_id);
+create index if not exists idx_supplier_debts_status on supplier_debts (status, due_date);
+
+-- ─── Log de actividad (auditoría) ───────────────────────────────────────────────
+
+create table if not exists activity_log (
+  id uuid primary key default gen_random_uuid(),
+  staff_id text not null references staff(id),
+  staff_name text not null,
+  staff_role text not null,
+  action text not null,
+  summary text not null,
+  created_at_ms bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_activity_log_created on activity_log (created_at_ms desc);
+create index if not exists idx_activity_log_staff on activity_log (staff_id, created_at_ms desc);

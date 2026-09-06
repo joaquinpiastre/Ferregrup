@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { pool } from '../db/client.js';
 import { requireAuth, signToken, type StaffRole } from '../auth.js';
+import { logActivity } from '../activityLog.js';
 
 export const authRouter = Router();
 
@@ -35,5 +36,6 @@ authRouter.post('/auth/login', async (req, res) => {
     return;
   }
   const token = signToken({ sub: staff.id, name: staff.name, role: staff.role });
+  await logActivity({ sub: staff.id, name: staff.name, role: staff.role }, 'auth.login', `Inició sesión`);
   res.json({ token, staff: { id: staff.id, name: staff.name, role: staff.role } });
 });

@@ -112,7 +112,7 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section !== 'home' && (
             <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff', marginBottom: 20 }}>{TITLES[section]}</h1>
           )}
-          {section === 'home' && <Home courierName={session.staff.name} shift={shift} stops={stops} onStart={handleStart} onEnd={handleEnd} />}
+          {section === 'home' && <Home token={session.token} courierName={session.staff.name} shift={shift} stops={stops} onStart={handleStart} onEnd={handleEnd} />}
           {section === 'ruta' && <RutaDelDia session={session} stops={stops} onChanged={refreshStops} />}
           {section === 'pedido' && <PedidoCalle session={session} orders={orders} onOrderCreated={(o) => setOrders((prev) => [o, ...prev])} onOrderChanged={refreshOrders} />}
           {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} />}

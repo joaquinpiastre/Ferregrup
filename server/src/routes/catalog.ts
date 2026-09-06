@@ -19,7 +19,7 @@ const productSchema = z.object({
   unitPrice: z.number().nonnegative(),
 });
 
-catalogRouter.post('/catalog', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -37,7 +37,7 @@ catalogRouter.post('/catalog', requireAuth, requireRole('admin', 'superadmin'), 
   res.json({ ok: true });
 });
 
-catalogRouter.delete('/catalog/:code', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+catalogRouter.delete('/catalog/:code', requireAuth, requireRole('admin'), async (req, res) => {
   const del = await pool.query(`update catalog_products set active = false where code = $1`, [req.params.code]);
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Producto no encontrado.' });

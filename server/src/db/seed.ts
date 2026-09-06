@@ -1,8 +1,7 @@
 import { pool } from './client.js';
 
-const seedStaff: { id: string; name: string; pin: string; role: 'superadmin' | 'admin' | 'repartidor' }[] = [
-  { id: 'superadmin', name: 'Superadmin', pin: '1234', role: 'superadmin' },
-  { id: 'mostrador', name: 'Mostrador', pin: '1234', role: 'admin' },
+const seedStaff: { id: string; name: string; pin: string; role: 'admin' | 'repartidor' }[] = [
+  { id: 'admin', name: 'Administrador', pin: '1234', role: 'admin' },
   { id: 'repartidor', name: 'Repartidor', pin: '1234', role: 'repartidor' },
 ];
 

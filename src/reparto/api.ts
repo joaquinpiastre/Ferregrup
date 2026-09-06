@@ -1,12 +1,19 @@
 import type {
+  ActivityLogEntry,
   CatalogProduct,
+  ClientAccount,
+  ClientStatement,
+  CourierGoal,
   DeliveryList,
   DeliveryListClient,
   FieldClient,
+  GoalMetric,
+  GoalPeriod,
   LivePosition,
   Payment,
   RouteStop,
   RouteStopStatus,
+  Sale,
   Session,
   Shift,
   ShiftStop,
@@ -14,6 +21,9 @@ import type {
   StaffRole,
   StreetOrder,
   StreetOrderStatus,
+  Supplier,
+  SupplierDebt,
+  SupplierPaymentMethod,
   TeamMember,
   Tracker,
 } from './types';
@@ -271,8 +281,9 @@ export function subscribePayments(token: string, onChange: (payments: Payment[])
   return poll(() => fetchPayments(token), onChange);
 }
 
-export async function createPayment(token: string, payment: Omit<Payment, 'id' | 'createdAt'>): Promise<void> {
-  await request('/payments', { method: 'POST', body: JSON.stringify(payment) }, token);
+export async function createPayment(token: string, payment: Omit<Payment, 'id' | 'createdAt'>): Promise<Payment> {
+  const data = await request<{ id: string; createdAt: number }>('/payments', { method: 'POST', body: JSON.stringify(payment) }, token);
+  return { ...payment, id: data.id, createdAt: data.createdAt };
 }
 
 // ─── Equipo ─────────────────────────────────────────────────────────────────
@@ -372,4 +383,114 @@ export async function applyList(token: string, id: string): Promise<{ added: num
 export async function fetchShiftStops(token: string, shiftId: string): Promise<ShiftStop[]> {
   const data = await request<{ stops: ShiftStop[] }>(`/shifts/${shiftId}/stops`, {}, token);
   return data.stops;
+}
+
+// ─── Cuentas de clientes (saldo = ventas cargadas - cobros) ──────────────────
+
+export async function fetchClientAccounts(token: string): Promise<ClientAccount[]> {
+  const data = await request<{ accounts: ClientAccount[] }>('/clients/accounts', {}, token);
+  return data.accounts;
+}
+
+export async function fetchClientBalance(token: string, clientId: string): Promise<{ charged: number; paid: number; balance: number }> {
+  return request(`/clients/${encodeURIComponent(clientId)}/balance`, {}, token);
+}
+
+export async function fetchClientStatement(token: string, clientId: string): Promise<ClientStatement> {
+  return request(`/clients/${encodeURIComponent(clientId)}/statement`, {}, token);
+}
+
+// ─── Ventas (cargos a cuenta de cliente, para objetivos del repartidor) ──────
+
+export async function fetchSales(token: string): Promise<Sale[]> {
+  const data = await request<{ sales: Sale[] }>('/sales', {}, token);
+  return data.sales;
+}
+
+export function subscribeSales(token: string, onChange: (sales: Sale[]) => void): () => void {
+  return poll(() => fetchSales(token), onChange);
+}
+
+export async function createSale(
+  token: string,
+  sale: { clientId?: string; clientName: string; courierId: string; courierName: string; amount: number; description?: string }
+): Promise<void> {
+  await request('/sales', { method: 'POST', body: JSON.stringify(sale) }, token);
+}
+
+export async function deleteSale(token: string, id: string): Promise<void> {
+  await request(`/sales/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+// ─── Objetivos de repartidores ────────────────────────────────────────────────
+
+export async function fetchGoals(token: string): Promise<CourierGoal[]> {
+  const data = await request<{ goals: CourierGoal[] }>('/goals', {}, token);
+  return data.goals;
+}
+
+export function subscribeGoals(token: string, onChange: (goals: CourierGoal[]) => void): () => void {
+  return poll(() => fetchGoals(token), onChange);
+}
+
+export async function setGoal(
+  token: string,
+  goal: { courierId: string; courierName: string; periodType: GoalPeriod; periodStart: string; targetAmount: number; metric: GoalMetric }
+): Promise<void> {
+  await request('/goals', { method: 'POST', body: JSON.stringify(goal) }, token);
+}
+
+export async function deleteGoal(token: string, id: string): Promise<void> {
+  await request(`/goals/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+// ─── Proveedores y deudas ──────────────────────────────────────────────────────
+
+export async function fetchSuppliers(token: string): Promise<Supplier[]> {
+  const data = await request<{ suppliers: Supplier[] }>('/suppliers', {}, token);
+  return data.suppliers;
+}
+
+export async function createSupplier(token: string, supplier: { id: string; name: string; phone?: string; notes?: string }): Promise<void> {
+  await request('/suppliers', { method: 'POST', body: JSON.stringify(supplier) }, token);
+}
+
+export async function deleteSupplier(token: string, id: string): Promise<void> {
+  await request(`/suppliers/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+export async function fetchSupplierDebts(token: string): Promise<SupplierDebt[]> {
+  const data = await request<{ debts: SupplierDebt[] }>('/supplier-debts', {}, token);
+  return data.debts;
+}
+
+export async function createSupplierDebt(
+  token: string,
+  debt: { supplierId: string; supplierName: string; invoiceNumber?: string; amount: number; issueDate?: string; dueDate?: string; notes?: string }
+): Promise<void> {
+  await request('/supplier-debts', { method: 'POST', body: JSON.stringify(debt) }, token);
+}
+
+export async function paySupplierDebt(
+  token: string,
+  id: string,
+  payload: { paymentMethod: SupplierPaymentMethod; echeqNumber?: string; echeqDate?: string }
+): Promise<void> {
+  await request(`/supplier-debts/${encodeURIComponent(id)}/pay`, { method: 'PATCH', body: JSON.stringify(payload) }, token);
+}
+
+export async function deleteSupplierDebt(token: string, id: string): Promise<void> {
+  await request(`/supplier-debts/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+// ─── Log de actividad ──────────────────────────────────────────────────────────
+
+export async function fetchLogs(token: string, staffId?: string): Promise<ActivityLogEntry[]> {
+  const qs = staffId ? `?staffId=${encodeURIComponent(staffId)}` : '';
+  const data = await request<{ logs: ActivityLogEntry[] }>(`/logs${qs}`, {}, token);
+  return data.logs;
+}
+
+export function subscribeLogs(token: string, staffId: string | undefined, onChange: (logs: ActivityLogEntry[]) => void): () => void {
+  return poll(() => fetchLogs(token, staffId), onChange);
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Printer, Eye, StickyNote, PackageCheck, Truck, XCircle } from 'lucide-react';
-import { printStreetOrder } from '../printTicket';
+import { Printer, Download, Eye, StickyNote, PackageCheck, Truck, XCircle } from 'lucide-react';
+import { downloadStreetOrderPdf, printStreetOrder } from '../printTicket';
 import { updateStreetOrderNotes, updateStreetOrderStatus } from '../api';
 import type { Session, StreetOrder, StreetOrderStatus } from '../types';
 
@@ -117,9 +117,14 @@ export default function PedidosCalleActivos({ session, orders, onOrderChanged }:
                 )}
               </div>
 
-              <button className="btn-secondary" style={{ marginTop: 10, width: '100%', justifyContent: 'center' }} onClick={() => printStreetOrder(o)}>
-                <Printer size={14} /> Imprimir pedido
-              </button>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => printStreetOrder(o)}>
+                  <Printer size={14} /> Imprimir
+                </button>
+                <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => downloadStreetOrderPdf(o)}>
+                  <Download size={14} /> Descargar PDF
+                </button>
+              </div>
 
               {!isFinal(o.status) && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>

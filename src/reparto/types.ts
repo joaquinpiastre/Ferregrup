@@ -28,7 +28,7 @@ export interface StreetOrder {
   createdAt: number;
 }
 
-export type StaffRole = 'superadmin' | 'admin' | 'repartidor';
+export type StaffRole = 'admin' | 'repartidor';
 
 export interface Staff {
   id: string;
@@ -169,4 +169,103 @@ export interface ShiftStop {
   courierNotes?: string;
   arrivedAt?: number;
   leftAt?: number;
+}
+
+// ─── Ventas (cargos a cuenta de cliente) ─────────────────────────────────────
+
+export interface Sale {
+  id: string;
+  clientId?: string;
+  clientName: string;
+  courierId: string;
+  courierName: string;
+  amount: number;
+  description?: string;
+  createdAt: number;
+}
+
+// ─── Cuentas de clientes ──────────────────────────────────────────────────────
+
+export interface ClientAccount {
+  id: string;
+  name: string;
+  address: string;
+  phone?: string;
+  type: FieldClientType;
+  charged: number;
+  paid: number;
+  balance: number;
+}
+
+export interface ClientStatementEntry {
+  id: string;
+  amount: number;
+  createdAt: number;
+  courierName: string;
+  description?: string;
+  method?: PaymentMethod;
+}
+
+export interface ClientStatement {
+  sales: ClientStatementEntry[];
+  payments: ClientStatementEntry[];
+}
+
+// ─── Objetivos de repartidores ────────────────────────────────────────────────
+
+export type GoalPeriod = 'semanal' | 'mensual';
+export type GoalMetric = 'cobros' | 'ventas' | 'ambos';
+
+export interface CourierGoal {
+  id: string;
+  courierId: string;
+  courierName: string;
+  periodType: GoalPeriod;
+  periodStart: string;
+  targetAmount: number;
+  metric: GoalMetric;
+  achieved: number;
+  ventas: number;
+  cobros: number;
+}
+
+// ─── Proveedores y deudas ──────────────────────────────────────────────────────
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string;
+  notes?: string;
+  active: boolean;
+}
+
+export type SupplierDebtStatus = 'pendiente' | 'pagado';
+export type SupplierPaymentMethod = 'efectivo' | 'transferencia' | 'cheque' | 'echeq' | 'otro';
+
+export interface SupplierDebt {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  invoiceNumber?: string;
+  amount: number;
+  issueDate?: string;
+  dueDate?: string;
+  status: SupplierDebtStatus;
+  paymentMethod?: SupplierPaymentMethod;
+  echeqNumber?: string;
+  echeqDate?: string;
+  notes?: string;
+  createdAt: number;
+}
+
+// ─── Log de actividad ──────────────────────────────────────────────────────────
+
+export interface ActivityLogEntry {
+  id: string;
+  staffId: string;
+  staffName: string;
+  staffRole: StaffRole;
+  action: string;
+  summary: string;
+  createdAt: number;
 }

@@ -117,7 +117,7 @@ function parseWorkbook(workbook: ExcelJS.Workbook): { rows: ParsedRow[]; skipped
 catalogImportRouter.post(
   '/catalog/import/preview',
   requireAuth,
-  requireRole('admin', 'superadmin'),
+  requireRole('admin'),
   upload.single('file'),
   async (req, res) => {
     if (!req.file) {
@@ -158,7 +158,7 @@ const confirmSchema = z.object({
     .min(1),
 });
 
-catalogImportRouter.post('/catalog/import/confirm', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+catalogImportRouter.post('/catalog/import/confirm', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = confirmSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });

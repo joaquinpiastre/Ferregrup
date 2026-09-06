@@ -1,42 +1,38 @@
 import { useEffect, useState } from 'react';
-import { Plus, Truck, Store, ShieldCheck, Edit2 } from 'lucide-react';
+import { Plus, Truck, Store, Edit2 } from 'lucide-react';
 import { createTeamMember, fetchTeam, updateTeamMember } from '../api';
 import type { StaffRole, TeamMember } from '../types';
 
 interface Props {
   token: string;
   currentUserId: string;
-  canManageSuperadmin?: boolean;
 }
 
 const ROLE_LABEL: Record<StaffRole, string> = {
-  superadmin: 'Superadmin',
-  admin: 'Mostrador',
+  admin: 'Administrador',
   repartidor: 'Repartidor',
 };
 
 const ROLE_ICON: Record<StaffRole, typeof Truck> = {
-  superadmin: ShieldCheck,
   admin: Store,
   repartidor: Truck,
 };
 
 const ROLE_COLOR: Record<StaffRole, string> = {
-  superadmin: '#f472b6',
   admin: '#60a5fa',
   repartidor: '#FFE000',
 };
 
 const emptyForm = () => ({ id: '', name: '', pin: '', role: 'repartidor' as StaffRole });
 
-export default function EquipoPanel({ token, currentUserId, canManageSuperadmin = false }: Props) {
+export default function EquipoPanel({ token, currentUserId }: Props) {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState('');
 
-  const availableRoles: StaffRole[] = canManageSuperadmin ? ['repartidor', 'admin', 'superadmin'] : ['repartidor', 'admin'];
+  const availableRoles: StaffRole[] = ['repartidor', 'admin'];
 
   function refresh() {
     fetchTeam(token).then(setTeam).catch(() => {});

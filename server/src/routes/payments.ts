@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../auth.js';
 import { pool } from '../db/client.js';
+import { logActivity } from '../activityLog.js';
 
 export const paymentsRouter = Router();
 
@@ -47,5 +48,6 @@ paymentsRouter.post('/payments', requireAuth, async (req, res) => {
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [id, p.clientId ?? null, p.clientName, p.courierId, p.courierName, p.amount, p.method, p.checkNumber ?? null, p.bank ?? null, p.notes ?? null, Date.now()]
   );
+  await logActivity(req.user!, 'payment.create', `Registró un cobro de ${p.amount} a ${p.clientName} (${p.method})`);
   res.json({ id, createdAt: Date.now() });
 });

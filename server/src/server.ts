@@ -13,6 +13,10 @@ import { teamRouter } from './routes/team.js';
 import { gpsRouter } from './routes/gps.js';
 import { trackersRouter } from './routes/trackers.js';
 import { listsRouter } from './routes/lists.js';
+import { salesRouter } from './routes/sales.js';
+import { goalsRouter } from './routes/goals.js';
+import { suppliersRouter } from './routes/suppliers.js';
+import { logsRouter } from './routes/logs.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
 const app = express();
@@ -34,6 +38,10 @@ app.use(teamRouter);
 app.use(gpsRouter);
 app.use(trackersRouter);
 app.use(listsRouter);
+app.use(salesRouter);
+app.use(goalsRouter);
+app.use(suppliersRouter);
+app.use(logsRouter);
 
 app.listen(config.port, () => {
   console.log(`Ferregrup server escuchando en :${config.port}`);

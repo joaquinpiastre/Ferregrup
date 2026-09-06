@@ -75,7 +75,7 @@ shiftsRouter.post('/shifts/:id/end', requireAuth, async (req, res) => {
   res.json({ ok: true, completedCount: Number(stats.rows[0].completed), totalCount: Number(stats.rows[0].total), minutesOnRoute: minutes });
 });
 
-shiftsRouter.get('/shifts', requireAuth, requireRole('admin', 'superadmin'), async (_req, res) => {
+shiftsRouter.get('/shifts', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
     `select id, courier_id as "courierId", courier_name as "courierName",
        started_at_ms as "startedAt", ended_at_ms as "endedAt",
@@ -88,7 +88,7 @@ shiftsRouter.get('/shifts', requireAuth, requireRole('admin', 'superadmin'), asy
   });
 });
 
-shiftsRouter.get('/shifts/:id/stops', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+shiftsRouter.get('/shifts/:id/stops', requireAuth, requireRole('admin'), async (req, res) => {
   const { rows } = await pool.query(`select courier_id as "courierId", started_at_ms as "startedAt" from shifts where id = $1`, [req.params.id]);
   if (rows.length === 0) {
     res.status(404).json({ error: 'Turno no encontrado.' });

@@ -5,7 +5,7 @@ import { pool } from '../db/client.js';
 
 export const listsRouter = Router();
 
-listsRouter.get('/lists', requireAuth, requireRole('admin', 'superadmin'), async (_req, res) => {
+listsRouter.get('/lists', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
     `select l.id, l.name, l.weekdays, l.courier_id as "courierId", l.courier_name as "courierName",
        count(lc.client_id)::int as "clientCount"
@@ -21,7 +21,7 @@ const createSchema = z.object({
   weekdays: z.array(z.number().int().min(0).max(6)).default([]),
 });
 
-listsRouter.post('/lists', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.post('/lists', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = createSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -43,7 +43,7 @@ const updateSchema = z.object({
   courierName: z.string().nullable().optional(),
 });
 
-listsRouter.patch('/lists/:id', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.patch('/lists/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -69,7 +69,7 @@ listsRouter.patch('/lists/:id', requireAuth, requireRole('admin', 'superadmin'),
   res.json({ ok: true });
 });
 
-listsRouter.delete('/lists/:id', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.delete('/lists/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const del = await pool.query(`delete from delivery_lists where id = $1`, [req.params.id]);
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Lista no encontrada.' });
@@ -78,7 +78,7 @@ listsRouter.delete('/lists/:id', requireAuth, requireRole('admin', 'superadmin')
   res.json({ ok: true });
 });
 
-listsRouter.get('/lists/:id/clients', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.get('/lists/:id/clients', requireAuth, requireRole('admin'), async (req, res) => {
   const { rows } = await pool.query(
     `select c.id, c.name, c.address, lc.order_num as "orderNum"
      from delivery_list_clients lc
@@ -91,7 +91,7 @@ listsRouter.get('/lists/:id/clients', requireAuth, requireRole('admin', 'superad
 
 const addClientSchema = z.object({ clientId: z.string().min(1) });
 
-listsRouter.post('/lists/:id/clients', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.post('/lists/:id/clients', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = addClientSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -106,12 +106,12 @@ listsRouter.post('/lists/:id/clients', requireAuth, requireRole('admin', 'supera
   res.json({ ok: true });
 });
 
-listsRouter.delete('/lists/:id/clients/:clientId', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.delete('/lists/:id/clients/:clientId', requireAuth, requireRole('admin'), async (req, res) => {
   await pool.query(`delete from delivery_list_clients where list_id = $1 and client_id = $2`, [req.params.id, req.params.clientId]);
   res.json({ ok: true });
 });
 
-listsRouter.post('/lists/:id/apply', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+listsRouter.post('/lists/:id/apply', requireAuth, requireRole('admin'), async (req, res) => {
   const list = await pool.query(`select * from delivery_lists where id = $1`, [req.params.id]);
   if (list.rows.length === 0) {
     res.status(404).json({ error: 'Lista no encontrada.' });

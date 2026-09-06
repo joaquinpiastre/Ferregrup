@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { createPayment, subscribeClients } from '../api';
-import type { FieldClient, PaymentMethod, Session } from '../types';
+import { CheckCircle2, Printer, Download } from 'lucide-react';
+import { createPayment, fetchClientBalance, subscribeClients } from '../api';
+import { downloadPaymentReceiptPdf, printPaymentReceipt } from '../printReceipt';
+import type { FieldClient, Payment, PaymentMethod, Session } from '../types';
 
 interface Props {
   session: Session;
@@ -28,13 +29,34 @@ export default function CobrosForm({ session }: Props) {
   const [bank, setBank] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
-  const [receipt, setReceipt] = useState<{ clientName: string; amount: number; method: PaymentMethod } | null>(null);
+  const [receipt, setReceipt] = useState<Payment | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q.length < 2) return [];
     return clients.filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)).slice(0, 6);
   }, [clients, query]);
+
+  useEffect(() => {
+    if (!selectedClient) return;
+    let cancelled = false;
+    fetchClientBalance(session.token, selectedClient.id)
+      .then((b) => { if (!cancelled) setBalance(b.balance); })
+      .catch(() => { if (!cancelled) setBalance(null); });
+    return () => { cancelled = true; };
+  }, [selectedClient, session.token]);
+
+  function chooseClient(c: FieldClient) {
+    setBalance(null);
+    setSelectedClient(c);
+    setQuery('');
+  }
+
+  function clearClient() {
+    setSelectedClient(null);
+    setBalance(null);
+  }
 
   async function submit() {
     setError('');
@@ -52,7 +74,7 @@ export default function CobrosForm({ session }: Props) {
       return;
     }
     try {
-      await createPayment(session.token, {
+      const created = await createPayment(session.token, {
         clientId: selectedClient.id,
         clientName: selectedClient.name,
         courierId: session.staff.id,
@@ -63,8 +85,8 @@ export default function CobrosForm({ session }: Props) {
         bank: method === 'cheque' ? bank.trim() : undefined,
         notes: notes.trim() || undefined,
       });
-      setReceipt({ clientName: selectedClient.name, amount: value, method });
-      setSelectedClient(null);
+      setReceipt(created);
+      clearClient();
       setAmount('');
       setCheckNumber('');
       setBank('');
@@ -83,6 +105,14 @@ export default function CobrosForm({ session }: Props) {
             <CheckCircle2 size={18} /> Cobro registrado
           </div>
           <div style={{ color: '#fff', marginTop: 8 }}>{receipt.clientName} — {fmt(receipt.amount)} ({METHODS.find((m) => m.id === receipt.method)?.label})</div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => printPaymentReceipt(receipt)}>
+              <Printer size={14} /> Imprimir recibo
+            </button>
+            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => downloadPaymentReceiptPdf(receipt)}>
+              <Download size={14} /> Descargar PDF
+            </button>
+          </div>
         </div>
       )}
 
@@ -93,8 +123,17 @@ export default function CobrosForm({ session }: Props) {
             <div>
               <div style={{ color: '#4ade80', fontWeight: 600, fontSize: 14 }}>{selectedClient.name}</div>
               <div style={{ color: '#888', fontSize: 12 }}>{selectedClient.address}</div>
+              <div style={{ fontSize: 12, marginTop: 4 }}>
+                {balance !== null ? (
+                  <span style={{ color: balance > 0 ? '#f87171' : '#4ade80', fontWeight: 700 }}>
+                    Saldo: {fmt(balance)}
+                  </span>
+                ) : (
+                  <span style={{ color: '#666' }}>Consultando saldo...</span>
+                )}
+              </div>
             </div>
-            <button className="btn-secondary" style={{ padding: '4px 10px' }} onClick={() => setSelectedClient(null)}>Cambiar</button>
+            <button className="btn-secondary" style={{ padding: '4px 10px' }} onClick={clearClient}>Cambiar</button>
           </div>
         ) : (
           <div style={{ position: 'relative' }}>
@@ -102,7 +141,7 @@ export default function CobrosForm({ session }: Props) {
             {suggestions.length > 0 && (
               <div className="card" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, padding: 6, marginTop: 4 }}>
                 {suggestions.map((c) => (
-                  <div key={c.id} onClick={() => { setSelectedClient(c); setQuery(''); }} style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer' }}>
+                  <div key={c.id} onClick={() => chooseClient(c)} style={{ padding: '8px 10px', borderRadius: 6, cursor: 'pointer' }}>
                     <div style={{ color: '#fff', fontSize: 13 }}>{c.name}</div>
                     <div style={{ color: '#666', fontSize: 12 }}>{c.address}</div>
                   </div>

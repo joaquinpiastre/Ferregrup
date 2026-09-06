@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
-import { printStreetOrder } from '../printTicket';
+import { Search, Printer, Download } from 'lucide-react';
+import { downloadStreetOrderPdf, printStreetOrder } from '../printTicket';
 import type { StreetOrder } from '../types';
 
 interface Props {
@@ -36,7 +36,7 @@ export default function PedidosCalleHistorial({ orders }: Props) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {finished.map((o) => (
-            <div key={o.id} className="card" style={{ cursor: 'pointer' }} onClick={() => printStreetOrder(o)} title="Click para imprimir">
+            <div key={o.id} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
                 <div>
                   <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{o.streetLabel}</div>
@@ -46,6 +46,14 @@ export default function PedidosCalleHistorial({ orders }: Props) {
                   <span className={o.status === 'retirado' ? 'badge badge-green' : 'badge badge-red'}>{o.status}</span>
                   <div style={{ color: '#fff', fontWeight: 600, marginTop: 4 }}>{fmt(o.total)}</div>
                 </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', padding: '4px 10px', fontSize: 12 }} onClick={() => printStreetOrder(o)}>
+                  <Printer size={12} /> Imprimir
+                </button>
+                <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center', padding: '4px 10px', fontSize: 12 }} onClick={() => downloadStreetOrderPdf(o)}>
+                  <Download size={12} /> Descargar PDF
+                </button>
               </div>
             </div>
           ))}

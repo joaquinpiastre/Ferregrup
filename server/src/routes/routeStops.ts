@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
+import { logActivity } from '../activityLog.js';
 
 export const routeStopsRouter = Router();
 
@@ -45,7 +46,7 @@ const bulkSchema = z.object({
   clients: z.array(z.object({ id: z.string(), name: z.string(), address: z.string() })).min(1),
 });
 
-routeStopsRouter.post('/route-stops/bulk', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+routeStopsRouter.post('/route-stops/bulk', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = bulkSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -89,7 +90,7 @@ routeStopsRouter.patch('/route-stops/:id/status', requireAuth, async (req, res) 
     res.status(400).json({ error: 'Datos inválidos.' });
     return;
   }
-  const { rows } = await pool.query(`select courier_id as "courierId" from route_stops where id = $1`, [req.params.id]);
+  const { rows } = await pool.query(`select courier_id as "courierId", client_name as "clientName" from route_stops where id = $1`, [req.params.id]);
   if (rows.length === 0) {
     res.status(404).json({ error: 'Parada no encontrada.' });
     return;
@@ -111,12 +112,15 @@ routeStopsRouter.patch('/route-stops/:id/status', requireAuth, async (req, res) 
      where id = $1`,
     [req.params.id, status, courierNotes ?? null, arrivedSet, leftSet]
   );
+  if (status === 'entregado' || status === 'problema') {
+    await logActivity(req.user!, 'route_stop.status', `Marcó "${status}" la parada de ${rows[0].clientName}`);
+  }
   res.json({ ok: true });
 });
 
 const orderSchema = z.object({ direction: z.enum(['up', 'down']) });
 
-routeStopsRouter.patch('/route-stops/:id/reorder', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+routeStopsRouter.patch('/route-stops/:id/reorder', requireAuth, requireRole('admin'), async (req, res) => {
   const parsed = orderSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -151,7 +155,7 @@ routeStopsRouter.patch('/route-stops/:id/reorder', requireAuth, requireRole('adm
   res.json({ ok: true });
 });
 
-routeStopsRouter.delete('/route-stops/:id', requireAuth, requireRole('admin', 'superadmin'), async (req, res) => {
+routeStopsRouter.delete('/route-stops/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const del = await pool.query(`delete from route_stops where id = $1`, [req.params.id]);
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Parada no encontrada.' });

@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Wallet, Banknote, Landmark, FileText, HelpCircle } from 'lucide-react';
+import { Wallet, Banknote, Landmark, FileText, HelpCircle, Printer, Download } from 'lucide-react';
 import { subscribePayments } from '../api';
+import { downloadPaymentReceiptPdf, printPaymentReceipt } from '../printReceipt';
 import type { Payment, PaymentMethod } from '../types';
+
+function startOfWeek(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1) - day; // semana arranca lunes
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
 
 interface Props {
   token: string;
@@ -27,22 +37,30 @@ function fmtDate(ts: number) {
   return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+type RangeFilter = 'todos' | 'esta_semana' | 'semana_pasada';
+
 export default function CobrosPanel({ token }: Props) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [courierFilter, setCourierFilter] = useState('todos');
   const [methodFilter, setMethodFilter] = useState<'todos' | PaymentMethod>('todos');
+  const [rangeFilter, setRangeFilter] = useState<RangeFilter>('todos');
 
   useEffect(() => subscribePayments(token, setPayments), [token]);
 
   const couriers = useMemo(() => Array.from(new Set(payments.map((p) => p.courierName))), [payments]);
 
-  const filtered = useMemo(
-    () =>
-      payments
-        .filter((p) => courierFilter === 'todos' || p.courierName === courierFilter)
-        .filter((p) => methodFilter === 'todos' || p.method === methodFilter),
-    [payments, courierFilter, methodFilter]
-  );
+  const filtered = useMemo(() => {
+    const thisWeekStart = startOfWeek(new Date()).getTime();
+    const lastWeekStart = thisWeekStart - 7 * 24 * 60 * 60 * 1000;
+    return payments
+      .filter((p) => courierFilter === 'todos' || p.courierName === courierFilter)
+      .filter((p) => methodFilter === 'todos' || p.method === methodFilter)
+      .filter((p) => {
+        if (rangeFilter === 'todos') return true;
+        if (rangeFilter === 'esta_semana') return p.createdAt >= thisWeekStart;
+        return p.createdAt >= lastWeekStart && p.createdAt < thisWeekStart;
+      });
+  }, [payments, courierFilter, methodFilter, rangeFilter]);
 
   const total = filtered.reduce((sum, p) => sum + p.amount, 0);
 
@@ -65,6 +83,11 @@ export default function CobrosPanel({ token }: Props) {
           <option value="todos">Todos los métodos</option>
           {Object.entries(METHOD_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
+        <select className="input-field" style={{ width: 170 }} value={rangeFilter} onChange={(e) => setRangeFilter(e.target.value as RangeFilter)}>
+          <option value="todos">Todas las fechas</option>
+          <option value="esta_semana">Esta semana</option>
+          <option value="semana_pasada">Semana pasada</option>
+        </select>
       </div>
 
       {filtered.length === 0 ? (
@@ -84,6 +107,14 @@ export default function CobrosPanel({ token }: Props) {
                   {p.notes && <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>{p.notes}</div>}
                 </div>
                 <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15 }}>{fmt(p.amount)}</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Imprimir recibo" onClick={() => printPaymentReceipt(p)}>
+                    <Printer size={13} />
+                  </button>
+                  <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Descargar PDF" onClick={() => downloadPaymentReceiptPdf(p)}>
+                    <Download size={13} />
+                  </button>
+                </div>
               </div>
             );
           })}
