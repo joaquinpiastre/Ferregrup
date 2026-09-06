@@ -1,16 +1,19 @@
 # Ferregrup
 
-Sistema de gestión para ferretería (React + TypeScript + Vite). El módulo de facturación/inventario histórico (inventario, deudores, clientes de distribución, ventas/remitos, rutas de reparto) guarda los datos en `localStorage` del navegador. El módulo de reparto (pedidos en la calle, rutas del día, cobros, etc.) vive en un backend propio porque necesita sincronizar datos entre el celular del repartidor y la PC del mostrador.
+Sistema de gestión de reparto para ferretería (React + TypeScript + Vite + backend propio en Express/Postgres). Todo vive en el backend porque necesita sincronizar datos entre el celular del repartidor y la PC del mostrador.
 
 ## Roles y login
 
-Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend). Según el rol de quien entra, ve una de tres cosas distintas:
+Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend). Hay solo dos roles:
 
-- **`superadmin`** — la app de gestión de siempre: Dashboard, Inventario, Deudores, Pedidos (a proveedores), Reportes, Clientes/Ventas/Rutas de distribución. Es exactamente lo que había antes de agregar el módulo de reparto.
-- **`admin`** — panel de mostrador del módulo de reparto, calcado del panel admin de "Reparto Del Centro", con la misma distribución de secciones: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, Equipo (alta/baja de usuarios admin/repartidor) y Trackers (GPS físico).
-- **`repartidor`** — panel del repartidor, calcado de la sección repartidor de esa misma app: inicio con turno (iniciar/terminar), mi ruta del día (navegar por Google Maps, marcar visitado/problema), pedido en la calle, clientes, catálogo, cobros.
+- **`admin`** — el panel del administrador/mostrador, con todo el negocio: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, **Cuentas de clientes** (saldo y detalle de movimientos de cada cliente), **Cobros** (con filtro semanal y recibo imprimible/PDF), **Ventas** (cargar ventas a cuenta de un cliente, asignadas a un repartidor), **Objetivos** (metas semanales/mensuales por repartidor), **Proveedores** (deudas con proveedores, fechas, factura y pago por ECHEQ), Equipo (alta/baja de usuarios) y **Actividad** (log de auditoría de qué hizo cada usuario).
+- **`repartidor`** — panel del repartidor: inicio con turno (iniciar/terminar) y sus barras de objetivo semanal/mensual, mi ruta del día (navegar por Google Maps, marcar visitado/problema), pedido en la calle, clientes, catálogo, cobros (ve el saldo del cliente antes de cobrar y puede imprimir/descargar el recibo).
 
-El seed inicial (`npm run seed` dentro de `server/`) crea tres usuarios de ejemplo — `superadmin`, `mostrador` (rol admin) y `repartidor` — todos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción**. El login es por usuario + PIN (sin listas desplegables): cualquier `superadmin` puede crear, editar o desactivar cuentas de cualquier rol desde **Usuarios** (en el sidebar de superadmin); un `admin`/mostrador puede hacer lo mismo pero solo para cuentas admin/repartidor, nunca para superadmin — esto se valida también del lado del servidor, no solo ocultando el botón.
+El seed inicial (`npm run seed` dentro de `server/`) crea dos usuarios de ejemplo — `admin` y `repartidor` — ambos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción**. El login es por usuario + PIN (sin listas desplegables); un `admin` puede crear, editar o desactivar cuentas de cualquiera de los dos roles desde **Equipo** — esto se valida también del lado del servidor, no solo ocultando el botón.
+
+### Cuentas, ventas y objetivos
+
+El saldo de un cliente es simplemente `ventas cargadas - cobros registrados`. El admin carga una venta (panel **Ventas**) a nombre de un cliente y asignada a un repartidor; eso sube el saldo del cliente y cuenta como "vendido" para el objetivo de ese repartidor. Cuando el repartidor cobra (o el admin lo carga desde **Cobros**), el saldo baja y ese monto cuenta como "recaudado". Los objetivos (panel **Objetivos**) se definen por repartidor, por período (semanal empieza un lunes, mensual el día 1) y por un monto en dinero — el admin elige si cuenta lo recaudado, lo vendido o ambos. El repartidor ve el avance como una barra de progreso en su pantalla de Inicio.
 
 ### Mapa en vivo y trackers GPS
 
@@ -20,15 +23,16 @@ El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (
 
 ### Importación de catálogo desde Excel
 
-Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin/superadmin pueden importar; repartidor solo puede buscar en el catálogo ya cargado.
+Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin puede importar; repartidor solo puede buscar en el catálogo ya cargado.
 
 ### Qué se dejó afuera a propósito
 
 Se tomó como referencia la app real de reparto de la pinturería (Expo + Express, carpeta `App Del Centro/delcentro-app` en esta misma compu) pero no se portó todo:
 
 - **Captura de foto/firma en la entrega** — en la app original ese flujo existe pero está desconectado (código huérfano, nunca se llega a usar en la práctica), así que no se portó.
-- **Reportes mensuales guardados / PDF** — no implementado por ahora.
 - **Arrastrar y soltar para reordenar la ruta** — se implementó con botones subir/bajar en su lugar (mismo resultado, sin la complejidad del drag-and-drop).
+
+El remito (pedido en calle) y el recibo de cobro sí se pueden imprimir y descargar como PDF (botón "Descargar PDF" junto al de imprimir), generado en el navegador con `jspdf` + `html2canvas` — no requiere ningún servicio externo.
 
 Cualquiera de estos se puede sumar después si hace falta.
 
@@ -123,3 +127,5 @@ export default defineConfig([
   },
 ])
 ```
+#   E l - M a n a  
+ 
