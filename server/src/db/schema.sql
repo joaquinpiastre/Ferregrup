@@ -254,3 +254,49 @@ create table if not exists activity_log (
 
 create index if not exists idx_activity_log_created on activity_log (created_at_ms desc);
 create index if not exists idx_activity_log_staff on activity_log (staff_id, created_at_ms desc);
+
+-- ─── Stock, costo e IVA por producto ────────────────────────────────────────────
+
+alter table catalog_products add column if not exists stock integer not null default 0;
+alter table catalog_products add column if not exists cost_price numeric(12,2);
+alter table catalog_products add column if not exists iva_rate numeric(5,2) not null default 21;
+
+-- ─── Ítems de venta (las ventas ahora son por producto, no un monto suelto) ─────
+
+create table if not exists sale_items (
+  id uuid primary key default gen_random_uuid(),
+  sale_id text not null references sales(id) on delete cascade,
+  code text,
+  description text not null,
+  quantity integer not null,
+  unit_price numeric(12,2) not null,
+  subtotal numeric(12,2) not null
+);
+
+create index if not exists idx_sale_items_sale on sale_items (sale_id);
+
+-- ─── Cotizaciones (como una venta, pero no descuentan stock ni afectan cuentas) ─
+
+create table if not exists quotes (
+  id text primary key,
+  client_id text references clients(id),
+  client_name text,
+  staff_id text not null references staff(id),
+  staff_name text not null,
+  total numeric(12,2) not null default 0,
+  notes text,
+  created_at_ms bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists quote_items (
+  id uuid primary key default gen_random_uuid(),
+  quote_id text not null references quotes(id) on delete cascade,
+  code text,
+  description text not null,
+  quantity integer not null,
+  unit_price numeric(12,2) not null,
+  subtotal numeric(12,2) not null
+);
+
+create index if not exists idx_quotes_created on quotes (created_at_ms desc);

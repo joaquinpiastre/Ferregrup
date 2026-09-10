@@ -11,6 +11,7 @@ import type {
   GoalPeriod,
   LivePosition,
   Payment,
+  Quote,
   RouteStop,
   RouteStopStatus,
   Sale,
@@ -19,7 +20,9 @@ import type {
   ShiftStop,
   Staff,
   StaffRole,
+  Stats,
   StreetOrder,
+  StreetOrderItem,
   StreetOrderStatus,
   Supplier,
   SupplierDebt,
@@ -413,13 +416,48 @@ export function subscribeSales(token: string, onChange: (sales: Sale[]) => void)
 
 export async function createSale(
   token: string,
-  sale: { clientId?: string; clientName: string; courierId: string; courierName: string; amount: number; description?: string }
+  sale: {
+    clientId?: string;
+    clientName: string;
+    courierId: string;
+    courierName: string;
+    description?: string;
+    items: StreetOrderItem[];
+  }
 ): Promise<void> {
   await request('/sales', { method: 'POST', body: JSON.stringify(sale) }, token);
 }
 
 export async function deleteSale(token: string, id: string): Promise<void> {
   await request(`/sales/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+// ─── Cotizaciones (no descuentan stock ni afectan la cuenta corriente) ───────
+
+export async function fetchQuotes(token: string): Promise<Quote[]> {
+  const data = await request<{ quotes: Quote[] }>('/quotes', {}, token);
+  return data.quotes;
+}
+
+export function subscribeQuotes(token: string, onChange: (quotes: Quote[]) => void): () => void {
+  return poll(() => fetchQuotes(token), onChange);
+}
+
+export async function createQuote(
+  token: string,
+  quote: { clientName?: string; notes?: string; items: StreetOrderItem[] }
+): Promise<{ id: string; total: number; createdAt: number }> {
+  return request('/quotes', { method: 'POST', body: JSON.stringify(quote) }, token);
+}
+
+export async function deleteQuote(token: string, id: string): Promise<void> {
+  await request(`/quotes/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+// ─── Estadísticas / proyecciones (admin) ─────────────────────────────────────
+
+export async function fetchStats(token: string): Promise<Stats> {
+  return request('/stats/dashboard', {}, token);
 }
 
 // ─── Objetivos de repartidores ────────────────────────────────────────────────

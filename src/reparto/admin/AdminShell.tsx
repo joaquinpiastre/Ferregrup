@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText } from 'lucide-react';
+import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3 } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { fetchStreetOrders, subscribeStreetOrders } from '../api';
@@ -16,6 +16,8 @@ import TrackersPanel from './TrackersPanel';
 import CobrosPanel from './CobrosPanel';
 import CuentasPanel from './CuentasPanel';
 import VentasPanel from './VentasPanel';
+import CotizacionesPanel from './CotizacionesPanel';
+import EstadisticasPanel from './EstadisticasPanel';
 import ObjetivosPanel from './ObjetivosPanel';
 import ProveedoresPanel from './ProveedoresPanel';
 import LogsPanel from './LogsPanel';
@@ -30,7 +32,7 @@ type Section =
   | 'pedidos' | 'rutas' | 'planificacion' | 'mapa' | 'historial'
   | 'clientes' | 'catalogo'
   | 'equipo' | 'trackers'
-  | 'cobros' | 'cuentas' | 'ventas' | 'objetivos' | 'proveedores'
+  | 'estadisticas' | 'cobros' | 'cuentas' | 'ventas' | 'cotizaciones' | 'objetivos' | 'proveedores'
   | 'logs';
 
 const sections: SidebarSection[] = [
@@ -54,9 +56,11 @@ const sections: SidebarSection[] = [
   {
     label: 'Finanzas',
     links: [
+      { id: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
       { id: 'cuentas', label: 'Cuentas de clientes', icon: Banknote },
       { id: 'cobros', label: 'Cobros', icon: Wallet },
       { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
+      { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
       { id: 'objetivos', label: 'Objetivos', icon: Target },
       { id: 'proveedores', label: 'Proveedores', icon: Building2 },
     ],
@@ -126,9 +130,11 @@ export default function AdminShell({ session, onLogout }: Props) {
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit />}
           {section === 'equipo' && <EquipoPanel token={session.token} currentUserId={session.staff.id} />}
           {section === 'trackers' && <TrackersPanel token={session.token} />}
+          {section === 'estadisticas' && <EstadisticasPanel token={session.token} />}
           {section === 'cobros' && <CobrosPanel token={session.token} />}
           {section === 'cuentas' && <CuentasPanel token={session.token} />}
           {section === 'ventas' && <VentasPanel token={session.token} />}
+          {section === 'cotizaciones' && <CotizacionesPanel token={session.token} />}
           {section === 'objetivos' && <ObjetivosPanel token={session.token} />}
           {section === 'proveedores' && <ProveedoresPanel token={session.token} />}
           {section === 'logs' && <LogsPanel token={session.token} />}

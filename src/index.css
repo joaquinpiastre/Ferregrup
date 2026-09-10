@@ -148,6 +148,11 @@ body {
 .badge-gray { background: #1a1a1a; color: #9ca3af; border: 1px solid #3d3d3d; }
 .badge-orange { background: #2d1800; color: #fb923c; border: 1px solid #fb923c33; }
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

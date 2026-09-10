@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Building2, User } from 'lucide-react';
-import { createClient, deleteClient, fetchClients, subscribeClients, updateClient } from '../api';
-import type { FieldClient, FieldClientType } from '../types';
+import { createClient, deleteClient, fetchClientAccounts, fetchClients, subscribeClients, updateClient } from '../api';
+import type { ClientAccount, FieldClient, FieldClientType } from '../types';
 
 interface Props {
   token: string;
@@ -11,9 +11,11 @@ interface Props {
 type Filter = 'todos' | FieldClientType;
 
 const emptyForm = () => ({ name: '', address: '', phone: '', notes: '', type: 'cliente' as FieldClientType });
+const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
 export default function ClientesPanel({ token, canDelete }: Props) {
   const [clients, setClients] = useState<FieldClient[]>([]);
+  const [balances, setBalances] = useState<Map<string, number>>(new Map());
   const [filter, setFilter] = useState<Filter>('todos');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -22,6 +24,14 @@ export default function ClientesPanel({ token, canDelete }: Props) {
   const [error, setError] = useState('');
 
   useEffect(() => subscribeClients(token, setClients), [token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchClientAccounts(token)
+      .then((accounts: ClientAccount[]) => { if (!cancelled) setBalances(new Map(accounts.map((a) => [a.id, a.balance]))); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [token, clients.length]);
 
   function refresh() {
     fetchClients(token).then(setClients).catch(() => {});
@@ -138,11 +148,21 @@ export default function ClientesPanel({ token, canDelete }: Props) {
                   {c.notes && <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>{c.notes}</div>}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={() => openEdit(c)}><Edit2 size={13} /></button>
-                {canDelete && (
-                  <button className="btn-danger" style={{ padding: '4px 8px' }} onClick={() => remove(c)}><Trash2 size={13} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                {balances.has(c.id) && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: balances.get(c.id)! > 0 ? '#f87171' : balances.get(c.id)! < 0 ? '#4ade80' : '#666' }}>
+                      {fmt(balances.get(c.id)!)}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#666' }}>{balances.get(c.id)! > 0 ? 'debe' : balances.get(c.id)! < 0 ? 'a favor' : 'al día'}</div>
+                  </div>
                 )}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={() => openEdit(c)}><Edit2 size={13} /></button>
+                  {canDelete && (
+                    <button className="btn-danger" style={{ padding: '4px 8px' }} onClick={() => remove(c)}><Trash2 size={13} /></button>
+                  )}
+                </div>
               </div>
             </div>
           ))}

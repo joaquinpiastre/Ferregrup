@@ -61,6 +61,9 @@ export interface CatalogProduct {
   code: string;
   description: string;
   unitPrice: number;
+  stock: number;
+  costPrice?: number;
+  ivaRate: number;
 }
 
 // ─── Rutas del día ──────────────────────────────────────────────────────────
@@ -181,6 +184,19 @@ export interface Sale {
   courierName: string;
   amount: number;
   description?: string;
+  items: StreetOrderItem[];
+  createdAt: number;
+}
+
+// ─── Cotizaciones (no descuentan stock ni afectan la cuenta corriente) ───────
+
+export interface Quote {
+  id: string;
+  clientName?: string;
+  staffName: string;
+  items: StreetOrderItem[];
+  total: number;
+  notes?: string;
   createdAt: number;
 }
 
@@ -256,6 +272,22 @@ export interface SupplierDebt {
   echeqDate?: string;
   notes?: string;
   createdAt: number;
+}
+
+// ─── Estadísticas / proyecciones (admin) ───────────────────────────────────────
+
+export interface StatsPeriod {
+  actualCobros: number;
+  actualVentas: number;
+  proyeccionCobros: number;
+  proyeccionVentas: number;
+}
+
+export interface Stats {
+  avgDailyCobros: number;
+  avgDailyVentas: number;
+  semana: StatsPeriod;
+  mes: StatsPeriod;
 }
 
 // ─── Log de actividad ──────────────────────────────────────────────────────────

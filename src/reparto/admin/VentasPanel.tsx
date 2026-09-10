@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, ShoppingCart, Trash2 } from 'lucide-react';
-import { createSale, deleteSale, fetchStaffList, subscribeClients, subscribeSales } from '../api';
-import type { FieldClient, Sale, Staff } from '../types';
+import { Plus, ShoppingCart, Trash2, Printer, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { createSale, deleteSale, fetchCatalog, fetchStaffList, subscribeClients, subscribeSales } from '../api';
+import { downloadSaleDocPdf, printSaleDoc } from '../printSaleDoc';
+import ProductItemPicker from '../shared/ProductItemPicker';
+import type { CatalogProduct, FieldClient, Sale, Staff, StreetOrderItem } from '../types';
 
 interface Props {
   token: string;
@@ -17,18 +19,21 @@ export default function VentasPanel({ token }: Props) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [clients, setClients] = useState<FieldClient[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [clientQuery, setClientQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<FieldClient | null>(null);
   const [courierId, setCourierId] = useState('');
-  const [amount, setAmount] = useState('');
+  const [items, setItems] = useState<StreetOrderItem[]>([]);
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [courierFilter, setCourierFilter] = useState('todos');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => subscribeSales(token, setSales), [token]);
   useEffect(() => subscribeClients(token, setClients), [token]);
   useEffect(() => { fetchStaffList(token).then(setStaff).catch(() => {}); }, [token]);
+  useEffect(() => { fetchCatalog(token).then(setCatalog).catch(() => {}); }, [token]);
 
   const couriers = useMemo(() => staff.filter((s) => s.role === 'repartidor'), [staff]);
   const courierNames = useMemo(() => Array.from(new Set(sales.map((s) => s.courierName))), [sales]);
@@ -48,28 +53,28 @@ export default function VentasPanel({ token }: Props) {
     setSelectedClient(null);
     setClientQuery('');
     setCourierId('');
-    setAmount('');
+    setItems([]);
     setDescription('');
     setError('');
     setShowForm(true);
   }
 
   async function submit() {
-    const value = Number(amount.replace(',', '.'));
     const courier = couriers.find((c) => c.id === courierId);
     if (!selectedClient) { setError('Elegí un cliente.'); return; }
     if (!courier) { setError('Elegí un repartidor.'); return; }
-    if (!Number.isFinite(value) || value <= 0) { setError('Ingresá un monto válido.'); return; }
+    if (items.length === 0) { setError('Agregá al menos un producto.'); return; }
     try {
       await createSale(token, {
         clientId: selectedClient.id,
         clientName: selectedClient.name,
         courierId: courier.id,
         courierName: courier.name,
-        amount: value,
         description: description.trim() || undefined,
+        items,
       });
       setShowForm(false);
+      fetchCatalog(token).then(setCatalog).catch(() => {});
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar la venta.');
     }
@@ -78,6 +83,33 @@ export default function VentasPanel({ token }: Props) {
   async function remove(s: Sale) {
     if (!confirm(`¿Eliminar la venta de ${fmt(s.amount)} a ${s.clientName}?`)) return;
     await deleteSale(token, s.id);
+    fetchCatalog(token).then(setCatalog).catch(() => {});
+  }
+
+  function printSale(s: Sale) {
+    printSaleDoc({
+      title: 'Venta',
+      fileNameBase: `venta-${s.id}`,
+      clientName: s.clientName,
+      staffName: s.courierName,
+      items: s.items,
+      total: s.amount,
+      notes: s.description,
+      createdAt: s.createdAt,
+    });
+  }
+
+  function downloadSale(s: Sale) {
+    void downloadSaleDocPdf({
+      title: 'Venta',
+      fileNameBase: `venta-${s.id}`,
+      clientName: s.clientName,
+      staffName: s.courierName,
+      items: s.items,
+      total: s.amount,
+      notes: s.description,
+      createdAt: s.createdAt,
+    });
   }
 
   const total = filtered.reduce((sum, s) => sum + s.amount, 0);
@@ -122,23 +154,16 @@ export default function VentasPanel({ token }: Props) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label>Repartidor</label>
-              <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)}>
-                <option value="">Elegir...</option>
-                {couriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label>Monto</label>
-              <input className="input-field" inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label>Descripción (opcional)</label>
-              <input className="input-field" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ej: materiales de reforma" />
-            </div>
-          </div>
+          <label>Repartidor</label>
+          <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)} style={{ marginBottom: 14 }}>
+            <option value="">Elegir...</option>
+            {couriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          <ProductItemPicker catalog={catalog} items={items} onItemsChange={setItems} />
+
+          <label style={{ marginTop: 14 }}>Nota (opcional)</label>
+          <input className="input-field" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ej: entrega en depósito" />
 
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
@@ -160,13 +185,35 @@ export default function VentasPanel({ token }: Props) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map((s) => (
-            <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{s.clientName}</div>
-                <div style={{ color: '#888', fontSize: 12 }}>{s.courierName}{s.description ? ` · ${s.description}` : ''} · {fmtDate(s.createdAt)}</div>
+            <div key={s.id} className="card" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: 2, flexShrink: 0 }}
+                  onClick={() => setExpanded(expanded === s.id ? null : s.id)}
+                >
+                  {expanded === s.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{s.clientName}</div>
+                  <div style={{ color: '#888', fontSize: 12 }}>
+                    {s.courierName} · {s.items.length} ítem{s.items.length !== 1 ? 's' : ''}{s.description ? ` · ${s.description}` : ''} · {fmtDate(s.createdAt)}
+                  </div>
+                </div>
+                <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(s.amount)}</div>
+                <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => printSale(s)}><Printer size={13} /></button>
+                <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => downloadSale(s)}><Download size={13} /></button>
+                <button className="btn-danger" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => remove(s)}><Trash2 size={13} /></button>
               </div>
-              <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15 }}>{fmt(s.amount)}</div>
-              <button className="btn-danger" style={{ padding: '4px 8px' }} onClick={() => remove(s)}><Trash2 size={13} /></button>
+              {expanded === s.id && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2d2d2d', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {s.items.map((it, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#ccc' }}>
+                      <span>{it.quantity} × {it.description}</span>
+                      <span style={{ color: '#999' }}>{fmt(it.subtotal)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

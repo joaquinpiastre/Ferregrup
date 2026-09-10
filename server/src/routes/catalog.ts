@@ -5,18 +5,30 @@ import { pool } from '../db/client.js';
 
 export const catalogRouter = Router();
 
-catalogRouter.get('/catalog', requireAuth, async (_req, res) => {
+catalogRouter.get('/catalog', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    `select code, description, unit_price as "unitPrice"
+    `select code, description, unit_price as "unitPrice", stock, cost_price as "costPrice", iva_rate as "ivaRate"
      from catalog_products where active = true order by description`
   );
-  res.json({ products: rows.map((r) => ({ ...r, unitPrice: Number(r.unitPrice) })) });
+  const isRepartidor = req.user?.role === 'repartidor';
+  res.json({
+    products: rows.map((r) => ({
+      ...r,
+      unitPrice: Number(r.unitPrice),
+      stock: Number(r.stock),
+      ivaRate: Number(r.ivaRate),
+      costPrice: isRepartidor || r.costPrice === null ? undefined : Number(r.costPrice),
+    })),
+  });
 });
 
 const productSchema = z.object({
   code: z.string().min(1),
   description: z.string().min(1),
   unitPrice: z.number().nonnegative(),
+  stock: z.number().int().nonnegative().default(0),
+  costPrice: z.number().nonnegative().optional(),
+  ivaRate: z.number().nonnegative().default(21),
 });
 
 catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, res) => {
@@ -27,12 +39,13 @@ catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, re
   }
   const p = parsed.data;
   await pool.query(
-    `insert into catalog_products (code, description, unit_price, active, updated_at)
-     values ($1,$2,$3,true,now())
+    `insert into catalog_products (code, description, unit_price, stock, cost_price, iva_rate, active, updated_at)
+     values ($1,$2,$3,$4,$5,$6,true,now())
      on conflict (code) do update set
        description = excluded.description, unit_price = excluded.unit_price,
+       stock = excluded.stock, cost_price = excluded.cost_price, iva_rate = excluded.iva_rate,
        active = true, updated_at = now()`,
-    [p.code, p.description, p.unitPrice]
+    [p.code, p.description, p.unitPrice, p.stock, p.costPrice ?? null, p.ivaRate]
   );
   res.json({ ok: true });
 });

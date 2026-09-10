@@ -16,7 +16,7 @@ clientsRouter.get('/clients', requireAuth, async (_req, res) => {
 
 // ─── Cuentas: saldo de todos los clientes (ventas cargadas - cobros) ───────────
 
-clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin'), async (_req, res) => {
+clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin', 'repartidor'), async (_req, res) => {
   const { rows } = await pool.query(`
     select c.id, c.name, c.address, c.phone, c.type,
       coalesce(s.total, 0) as charged,
