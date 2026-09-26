@@ -220,6 +220,7 @@ export interface ClientStatementEntry {
   courierName: string;
   description?: string;
   method?: PaymentMethod;
+  items?: StreetOrderItem[];
 }
 
 export interface ClientStatement {

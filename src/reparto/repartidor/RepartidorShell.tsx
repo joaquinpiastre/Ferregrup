@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet } from 'lucide-react';
+import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { endShift, fetchActiveShift, fetchRouteStops, fetchStreetOrders, postGpsUpdate, startShift, subscribeRouteStops, subscribeStreetOrders } from '../api';
@@ -9,6 +9,7 @@ import PedidoCalle from './PedidoCalle';
 import ClientesPanel from '../shared/ClientesPanel';
 import CatalogoPanel from '../shared/CatalogoPanel';
 import CobrosForm from './CobrosForm';
+import CuentasPanel from '../admin/CuentasPanel';
 import type { RouteStop, Session, Shift, StreetOrder } from '../types';
 
 interface Props {
@@ -16,7 +17,7 @@ interface Props {
   onLogout: () => void;
 }
 
-type Section = 'home' | 'ruta' | 'pedido' | 'clientes' | 'catalogo' | 'cobros';
+type Section = 'home' | 'ruta' | 'pedido' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros';
 
 const TITLES: Record<Section, string> = {
   home: 'Inicio',
@@ -24,6 +25,7 @@ const TITLES: Record<Section, string> = {
   pedido: 'Pedido en calle',
   clientes: 'Clientes',
   catalogo: 'Catálogo',
+  cuentas: 'Cuentas corrientes',
   cobros: 'Cobros',
 };
 
@@ -36,6 +38,7 @@ const sections: SidebarSection[] = [
       { id: 'pedido', label: 'Pedido en calle', icon: Send },
       { id: 'clientes', label: 'Clientes', icon: UserCheck },
       { id: 'catalogo', label: 'Catálogo', icon: Package },
+      { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
       { id: 'cobros', label: 'Cobros', icon: Wallet },
     ],
   },
@@ -117,6 +120,7 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section === 'pedido' && <PedidoCalle session={session} orders={orders} onOrderCreated={(o) => setOrders((prev) => [o, ...prev])} onOrderChanged={refreshOrders} />}
           {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} />}
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit={false} />}
+          {section === 'cuentas' && <CuentasPanel token={session.token} canOpenStatement={false} />}
           {section === 'cobros' && <CobrosForm session={session} />}
         </div>
       </main>

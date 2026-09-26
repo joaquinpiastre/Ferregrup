@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
+import { logActivity } from '../activityLog.js';
 
 export const catalogRouter = Router();
 
@@ -48,6 +49,42 @@ catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, re
     [p.code, p.description, p.unitPrice, p.stock, p.costPrice ?? null, p.ivaRate]
   );
   res.json({ ok: true });
+});
+
+const stockAdjustSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('add'),
+    quantity: z.number().int().refine((n) => n !== 0, 'La cantidad no puede ser 0.'),
+  }),
+  z.object({ mode: z.literal('set'), quantity: z.number().int().nonnegative('El stock no puede ser negativo.') }),
+]);
+
+catalogRouter.patch('/catalog/:code/stock', requireAuth, requireRole('admin'), async (req, res) => {
+  const parsed = stockAdjustSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' });
+    return;
+  }
+  const { mode, quantity } = parsed.data;
+  const newStock = mode === 'add' ? 'p.stock + $2' : '$2';
+  const { rows } = await pool.query(
+    `with old as (select stock from catalog_products where code = $1 and active = true for update)
+     update catalog_products p set stock = ${newStock}, updated_at = now()
+     from old where p.code = $1
+     returning p.description, old.stock as prev, p.stock as stock`,
+    [req.params.code, quantity]
+  );
+  if (rows.length === 0) {
+    res.status(404).json({ error: 'Producto no encontrado.' });
+    return;
+  }
+  const { description, prev, stock } = rows[0];
+  const summary =
+    mode === 'add'
+      ? `${quantity > 0 ? 'Ingresó' : 'Descontó'} ${Math.abs(quantity)} u. de ${description} (stock ${prev} → ${stock})`
+      : `Corrigió el stock de ${description} (${prev} → ${stock})`;
+  await logActivity(req.user!, 'stock.adjust', summary);
+  res.json({ stock: Number(stock), prev: Number(prev) });
 });
 
 catalogRouter.delete('/catalog/:code', requireAuth, requireRole('admin'), async (req, res) => {

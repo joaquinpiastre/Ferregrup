@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
+import { itemsJsonAgg } from '../db/sqlFragments.js';
 
 export const clientsRouter = Router();
 
@@ -57,8 +58,9 @@ clientsRouter.get('/clients/:id/balance', requireAuth, async (req, res) => {
 clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin'), async (req, res) => {
   const [{ rows: sales }, { rows: payments }] = await Promise.all([
     pool.query(
-      `select id, amount, description, courier_name as "courierName", created_at_ms as "createdAt"
-       from sales where client_id = $1 order by created_at_ms desc`,
+      `select s.id, s.amount, s.description, s.courier_name as "courierName", s.created_at_ms as "createdAt", ${itemsJsonAgg}
+       from sales s left join sale_items i on i.sale_id = s.id
+       where s.client_id = $1 group by s.id order by s.created_at_ms desc`,
       [req.params.id]
     ),
     pool.query(
@@ -68,8 +70,8 @@ clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin'), a
     ),
   ]);
   res.json({
-    sales: sales.map((r) => ({ ...r, amount: Number(r.amount) })),
-    payments: payments.map((r) => ({ ...r, amount: Number(r.amount) })),
+    sales: sales.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })),
+    payments: payments.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })),
   });
 });
 

@@ -44,7 +44,8 @@ export async function downloadHtmlAsPdf(html: string, fileName: string): Promise
     let position = 0;
     pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
-    while (heightLeft > 0) {
+    // Tolerancia de 1pt: una hoja justa de 1123px se pasaba por decimales y agregaba una página en blanco.
+    while (heightLeft > 1) {
       position -= pageHeight;
       pdf.addPage();
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);

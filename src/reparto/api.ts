@@ -183,6 +183,14 @@ export async function deleteCatalogProduct(token: string, code: string): Promise
   await request(`/catalog/${encodeURIComponent(code)}`, { method: 'DELETE' }, token);
 }
 
+export async function adjustStock(
+  token: string,
+  code: string,
+  adjustment: { mode: 'add' | 'set'; quantity: number }
+): Promise<{ stock: number; prev: number }> {
+  return request(`/catalog/${encodeURIComponent(code)}/stock`, { method: 'PATCH', body: JSON.stringify(adjustment) }, token);
+}
+
 export interface CatalogImportPreview {
   rows: CatalogProduct[];
   skipped: number;

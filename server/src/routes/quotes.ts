@@ -3,23 +3,9 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
+import { itemsJsonAgg } from '../db/sqlFragments.js';
 
 export const quotesRouter = Router();
-
-const itemsJsonAgg = `
-  coalesce(
-    json_agg(
-      json_build_object(
-        'code', i.code,
-        'description', i.description,
-        'quantity', i.quantity,
-        'unitPrice', i.unit_price,
-        'subtotal', i.subtotal
-      )
-    ) filter (where i.id is not null),
-    '[]'::json
-  ) as items
-`;
 
 quotesRouter.get('/quotes', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
@@ -28,7 +14,7 @@ quotesRouter.get('/quotes', requireAuth, requireRole('admin'), async (_req, res)
      from quotes q left join quote_items i on i.quote_id = q.id
      group by q.id order by q.created_at_ms desc limit 300`
   );
-  res.json({ quotes: rows.map((r) => ({ ...r, total: Number(r.total) })) });
+  res.json({ quotes: rows.map((r) => ({ ...r, total: Number(r.total), createdAt: Number(r.createdAt) })) });
 });
 
 const itemSchema = z.object({

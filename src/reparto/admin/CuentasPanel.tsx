@@ -5,6 +5,7 @@ import type { ClientAccount, ClientStatement } from '../types';
 
 interface Props {
   token: string;
+  canOpenStatement?: boolean;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -13,7 +14,7 @@ function fmtDate(ts: number) {
   return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function CuentasPanel({ token }: Props) {
+export default function CuentasPanel({ token, canOpenStatement = true }: Props) {
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ClientAccount | null>(null);
@@ -72,7 +73,7 @@ export default function CuentasPanel({ token }: Props) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {filtered.map((a) => (
-            <div key={a.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 14, cursor: 'pointer' }} onClick={() => openAccount(a)}>
+            <div key={a.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 14, cursor: canOpenStatement ? 'pointer' : 'default' }} onClick={() => canOpenStatement && openAccount(a)}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{a.name}</div>
                 <div style={{ color: '#888', fontSize: 12 }}>{a.address}</div>
@@ -128,6 +129,11 @@ export default function CuentasPanel({ token }: Props) {
                       {entry.kind === 'venta' ? <ShoppingCart size={14} color="#f87171" /> : <Banknote size={14} color="#4ade80" />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ color: '#fff', fontSize: 13 }}>{entry.kind === 'venta' ? (entry.description || 'Venta cargada') : 'Cobro'}</div>
+                        {entry.items && entry.items.length > 0 && (
+                          <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+                            {entry.items.map((it) => `${it.quantity} × ${it.description}`).join(' · ')}
+                          </div>
+                        )}
                         <div style={{ color: '#666', fontSize: 11 }}>{entry.courierName} · {fmtDate(entry.createdAt)}</div>
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 13, color: entry.kind === 'venta' ? '#f87171' : '#4ade80' }}>

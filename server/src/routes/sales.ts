@@ -3,23 +3,9 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
+import { itemsJsonAgg } from '../db/sqlFragments.js';
 
 export const salesRouter = Router();
-
-const itemsJsonAgg = `
-  coalesce(
-    json_agg(
-      json_build_object(
-        'code', i.code,
-        'description', i.description,
-        'quantity', i.quantity,
-        'unitPrice', i.unit_price,
-        'subtotal', i.subtotal
-      )
-    ) filter (where i.id is not null),
-    '[]'::json
-  ) as items
-`;
 
 salesRouter.get('/sales', requireAuth, async (req, res) => {
   const isRepartidor = req.user?.role === 'repartidor';
@@ -35,7 +21,7 @@ salesRouter.get('/sales', requireAuth, async (req, res) => {
          group by s.id order by s.created_at_ms desc limit 300`,
     isRepartidor ? [req.user!.sub] : []
   );
-  res.json({ sales: rows.map((r) => ({ ...r, amount: Number(r.amount) })) });
+  res.json({ sales: rows.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })) });
 });
 
 const itemSchema = z.object({
