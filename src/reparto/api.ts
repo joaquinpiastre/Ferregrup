@@ -431,6 +431,7 @@ export async function createSale(
     courierName: string;
     description?: string;
     items: StreetOrderItem[];
+    installments?: { count: number; firstDueDate: string };
   }
 ): Promise<void> {
   await request('/sales', { method: 'POST', body: JSON.stringify(sale) }, token);

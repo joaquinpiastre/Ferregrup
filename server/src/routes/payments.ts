@@ -12,11 +12,11 @@ paymentsRouter.get('/payments', requireAuth, async (req, res) => {
     isRepartidor
       ? `select id, client_id as "clientId", client_name as "clientName", courier_id as "courierId",
            courier_name as "courierName", amount, method, check_number as "checkNumber", bank, notes,
-           created_at_ms as "createdAt"
+           installment_id as "installmentId", created_at_ms as "createdAt"
          from payments where courier_id = $1 order by created_at_ms desc limit 200`
       : `select id, client_id as "clientId", client_name as "clientName", courier_id as "courierId",
            courier_name as "courierName", amount, method, check_number as "checkNumber", bank, notes,
-           created_at_ms as "createdAt"
+           installment_id as "installmentId", created_at_ms as "createdAt"
          from payments order by created_at_ms desc limit 300`,
     isRepartidor ? [req.user!.sub] : []
   );
@@ -33,6 +33,7 @@ const paymentSchema = z.object({
   checkNumber: z.string().optional(),
   bank: z.string().optional(),
   notes: z.string().optional(),
+  installmentId: z.string().optional(),
 });
 
 paymentsRouter.post('/payments', requireAuth, async (req, res) => {
@@ -42,12 +43,33 @@ paymentsRouter.post('/payments', requireAuth, async (req, res) => {
     return;
   }
   const p = parsed.data;
+
+  if (p.installmentId) {
+    const { rows } = await pool.query(
+      `select s.client_id as "clientId" from sale_installments si
+       join sales s on s.id = si.sale_id where si.id = $1`,
+      [p.installmentId]
+    );
+    if (rows.length === 0) {
+      res.status(400).json({ error: 'La cuota indicada no existe.' });
+      return;
+    }
+    if (p.clientId && rows[0].clientId && rows[0].clientId !== p.clientId) {
+      res.status(400).json({ error: 'La cuota no corresponde a ese cliente.' });
+      return;
+    }
+  }
+
   const id = `pay-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   await pool.query(
-    `insert into payments (id, client_id, client_name, courier_id, courier_name, amount, method, check_number, bank, notes, created_at_ms)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-    [id, p.clientId ?? null, p.clientName, p.courierId, p.courierName, p.amount, p.method, p.checkNumber ?? null, p.bank ?? null, p.notes ?? null, Date.now()]
+    `insert into payments (id, client_id, client_name, courier_id, courier_name, amount, method, check_number, bank, notes, installment_id, created_at_ms)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [id, p.clientId ?? null, p.clientName, p.courierId, p.courierName, p.amount, p.method, p.checkNumber ?? null, p.bank ?? null, p.notes ?? null, p.installmentId ?? null, Date.now()]
   );
-  await logActivity(req.user!, 'payment.create', `Registró un cobro de ${p.amount} a ${p.clientName} (${p.method})`);
+  await logActivity(
+    req.user!,
+    'payment.create',
+    `Registró un cobro de ${p.amount} a ${p.clientName} (${p.method})${p.installmentId ? ' aplicado a una cuota' : ''}`
+  );
   res.json({ id, createdAt: Date.now() });
 });

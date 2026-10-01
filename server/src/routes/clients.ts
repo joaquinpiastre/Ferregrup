@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
-import { itemsJsonAgg } from '../db/sqlFragments.js';
+import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
 
 export const clientsRouter = Router();
 
@@ -54,23 +54,31 @@ clientsRouter.get('/clients/:id/balance', requireAuth, async (req, res) => {
 });
 
 // ─── Detalle de cuenta: ventas y cobros de un cliente ───────────────────────────
+// Lo puede ver admin y repartidor (los vendedores necesitan ver el detalle de la
+// cuenta corriente del cliente, incluidas las cuotas, para poder cobrarle).
 
-clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin'), async (req, res) => {
+clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin', 'repartidor'), async (req, res) => {
   const [{ rows: sales }, { rows: payments }] = await Promise.all([
     pool.query(
-      `select s.id, s.amount, s.description, s.courier_name as "courierName", s.created_at_ms as "createdAt", ${itemsJsonAgg}
+      `select s.id, s.amount, s.description, s.courier_name as "courierName", s.installments_total as "installmentsTotal",
+         s.created_at_ms as "createdAt", ${itemsJsonAgg}, ${installmentsJsonAgg}
        from sales s left join sale_items i on i.sale_id = s.id
        where s.client_id = $1 group by s.id order by s.created_at_ms desc`,
       [req.params.id]
     ),
     pool.query(
-      `select id, amount, method, courier_name as "courierName", created_at_ms as "createdAt"
+      `select id, amount, method, courier_name as "courierName", installment_id as "installmentId", created_at_ms as "createdAt"
        from payments where client_id = $1 order by created_at_ms desc`,
       [req.params.id]
     ),
   ]);
   res.json({
-    sales: sales.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })),
+    sales: sales.map((r) => ({
+      ...r,
+      amount: Number(r.amount),
+      createdAt: Number(r.createdAt),
+      installmentsTotal: r.installmentsTotal === null ? undefined : Number(r.installmentsTotal),
+    })),
     payments: payments.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })),
   });
 });

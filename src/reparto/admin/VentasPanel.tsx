@@ -3,10 +3,14 @@ import { Plus, ShoppingCart, Trash2, Printer, Download, ChevronDown, ChevronUp }
 import { createSale, deleteSale, fetchCatalog, fetchStaffList, subscribeClients, subscribeSales } from '../api';
 import { downloadSaleDocPdf, printSaleDoc } from '../printSaleDoc';
 import ProductItemPicker from '../shared/ProductItemPicker';
+import InstallmentsList from '../shared/InstallmentsList';
 import type { CatalogProduct, FieldClient, Sale, Staff, StreetOrderItem } from '../types';
 
 interface Props {
   token: string;
+  /** Cuando se pasa (panel de repartidor), la venta se carga siempre a nombre de este usuario y no se puede elegir otro repartidor. */
+  courier?: { id: string; name: string };
+  canDelete?: boolean;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -15,7 +19,11 @@ function fmtDate(ts: number) {
   return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function VentasPanel({ token }: Props) {
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export default function VentasPanel({ token, courier, canDelete = true }: Props) {
   const [sales, setSales] = useState<Sale[]>([]);
   const [clients, setClients] = useState<FieldClient[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -26,13 +34,16 @@ export default function VentasPanel({ token }: Props) {
   const [courierId, setCourierId] = useState('');
   const [items, setItems] = useState<StreetOrderItem[]>([]);
   const [description, setDescription] = useState('');
+  const [useInstallments, setUseInstallments] = useState(false);
+  const [installmentsCount, setInstallmentsCount] = useState('12');
+  const [firstDueDate, setFirstDueDate] = useState(today());
   const [error, setError] = useState('');
   const [courierFilter, setCourierFilter] = useState('todos');
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => subscribeSales(token, setSales), [token]);
   useEffect(() => subscribeClients(token, setClients), [token]);
-  useEffect(() => { fetchStaffList(token).then(setStaff).catch(() => {}); }, [token]);
+  useEffect(() => { if (!courier) fetchStaffList(token).then(setStaff).catch(() => {}); }, [token, courier]);
   useEffect(() => { fetchCatalog(token).then(setCatalog).catch(() => {}); }, [token]);
 
   const couriers = useMemo(() => staff.filter((s) => s.role === 'repartidor'), [staff]);
@@ -45,9 +56,18 @@ export default function VentasPanel({ token }: Props) {
   }, [clients, clientQuery]);
 
   const filtered = useMemo(
-    () => sales.filter((s) => courierFilter === 'todos' || s.courierName === courierFilter),
-    [sales, courierFilter]
+    () => (courier ? sales : sales.filter((s) => courierFilter === 'todos' || s.courierName === courierFilter)),
+    [sales, courierFilter, courier]
   );
+
+  const total = useMemo(() => items.reduce((sum, it) => sum + it.subtotal, 0), [items]);
+  const installmentsPreview = useMemo(() => {
+    const count = parseInt(installmentsCount, 10);
+    if (!useInstallments || !Number.isFinite(count) || count < 2 || total <= 0) return null;
+    const base = Math.floor(total / count * 100) / 100;
+    const last = Math.round((total - base * (count - 1)) * 100) / 100;
+    return { count, base, last };
+  }, [useInstallments, installmentsCount, total]);
 
   function openAdd() {
     setSelectedClient(null);
@@ -55,23 +75,29 @@ export default function VentasPanel({ token }: Props) {
     setCourierId('');
     setItems([]);
     setDescription('');
+    setUseInstallments(false);
+    setInstallmentsCount('12');
+    setFirstDueDate(today());
     setError('');
     setShowForm(true);
   }
 
   async function submit() {
-    const courier = couriers.find((c) => c.id === courierId);
+    const assignedCourier = courier ?? couriers.find((c) => c.id === courierId);
     if (!selectedClient) { setError('Elegí un cliente.'); return; }
-    if (!courier) { setError('Elegí un repartidor.'); return; }
+    if (!assignedCourier) { setError('Elegí un repartidor.'); return; }
     if (items.length === 0) { setError('Agregá al menos un producto.'); return; }
+    const count = parseInt(installmentsCount, 10);
+    if (useInstallments && (!Number.isFinite(count) || count < 2)) { setError('Ingresá una cantidad de cuotas válida (mínimo 2).'); return; }
     try {
       await createSale(token, {
         clientId: selectedClient.id,
         clientName: selectedClient.name,
-        courierId: courier.id,
-        courierName: courier.name,
+        courierId: assignedCourier.id,
+        courierName: assignedCourier.name,
         description: description.trim() || undefined,
         items,
+        installments: useInstallments ? { count, firstDueDate } : undefined,
       });
       setShowForm(false);
       fetchCatalog(token).then(setCatalog).catch(() => {});
@@ -112,7 +138,7 @@ export default function VentasPanel({ token }: Props) {
     });
   }
 
-  const total = filtered.reduce((sum, s) => sum + s.amount, 0);
+  const listTotal = filtered.reduce((sum, s) => sum + s.amount, 0);
 
   return (
     <div>
@@ -120,7 +146,7 @@ export default function VentasPanel({ token }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <ShoppingCart size={22} color="#FFE000" />
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(total)}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(listTotal)}</div>
             <div style={{ fontSize: 12, color: '#888' }}>{filtered.length} venta{filtered.length !== 1 ? 's' : ''} cargada{filtered.length !== 1 ? 's' : ''}</div>
           </div>
         </div>
@@ -154,16 +180,42 @@ export default function VentasPanel({ token }: Props) {
             </div>
           )}
 
-          <label>Repartidor</label>
-          <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)} style={{ marginBottom: 14 }}>
-            <option value="">Elegir...</option>
-            {couriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          {!courier && (
+            <>
+              <label>Repartidor</label>
+              <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)} style={{ marginBottom: 14 }}>
+                <option value="">Elegir...</option>
+                {couriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </>
+          )}
 
           <ProductItemPicker catalog={catalog} items={items} onItemsChange={setItems} />
 
           <label style={{ marginTop: 14 }}>Nota (opcional)</label>
           <input className="input-field" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="ej: entrega en depósito" />
+
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" id="use-installments" checked={useInstallments} onChange={(e) => setUseInstallments(e.target.checked)} style={{ width: 16, height: 16 }} />
+            <label htmlFor="use-installments" style={{ margin: 0, cursor: 'pointer' }}>Vender en cuotas</label>
+          </div>
+          {useInstallments && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+              <div>
+                <label>Cantidad de cuotas</label>
+                <input className="input-field" inputMode="numeric" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} />
+              </div>
+              <div>
+                <label>Fecha de la 1ª cuota</label>
+                <input className="input-field" type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.target.value)} />
+              </div>
+              {installmentsPreview && (
+                <div style={{ gridColumn: '1 / -1', color: '#888', fontSize: 12 }}>
+                  {installmentsPreview.count - 1} cuotas de {fmt(installmentsPreview.base)} y la última de {fmt(installmentsPreview.last)}, una por mes desde el {firstDueDate}.
+                </div>
+              )}
+            </div>
+          )}
 
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
@@ -173,12 +225,14 @@ export default function VentasPanel({ token }: Props) {
         </div>
       )}
 
-      <div style={{ marginBottom: 12 }}>
-        <select className="input-field" style={{ width: 220 }} value={courierFilter} onChange={(e) => setCourierFilter(e.target.value)}>
-          <option value="todos">Todos los repartidores</option>
-          {courierNames.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-      </div>
+      {!courier && (
+        <div style={{ marginBottom: 12 }}>
+          <select className="input-field" style={{ width: 220 }} value={courierFilter} onChange={(e) => setCourierFilter(e.target.value)}>
+            <option value="todos">Todos los repartidores</option>
+            {courierNames.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <p style={{ color: '#666', fontSize: 14 }}>No hay ventas cargadas todavía.</p>
@@ -196,22 +250,29 @@ export default function VentasPanel({ token }: Props) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{s.clientName}</div>
                   <div style={{ color: '#888', fontSize: 12 }}>
-                    {s.courierName} · {s.items.length} ítem{s.items.length !== 1 ? 's' : ''}{s.description ? ` · ${s.description}` : ''} · {fmtDate(s.createdAt)}
+                    {s.courierName} · {s.items.length} ítem{s.items.length !== 1 ? 's' : ''}
+                    {s.installmentsTotal ? ` · en ${s.installmentsTotal} cuotas` : ''}
+                    {s.description ? ` · ${s.description}` : ''} · {fmtDate(s.createdAt)}
                   </div>
                 </div>
                 <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(s.amount)}</div>
                 <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => printSale(s)}><Printer size={13} /></button>
                 <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => downloadSale(s)}><Download size={13} /></button>
-                <button className="btn-danger" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => remove(s)}><Trash2 size={13} /></button>
+                {canDelete && (
+                  <button className="btn-danger" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => remove(s)}><Trash2 size={13} /></button>
+                )}
               </div>
               {expanded === s.id && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2d2d2d', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {s.items.map((it, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#ccc' }}>
-                      <span>{it.quantity} × {it.description}</span>
-                      <span style={{ color: '#999' }}>{fmt(it.subtotal)}</span>
-                    </div>
-                  ))}
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #2d2d2d', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {s.items.map((it, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#ccc' }}>
+                        <span>{it.quantity} × {it.description}</span>
+                        <span style={{ color: '#999' }}>{fmt(it.subtotal)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  {s.installments.length > 0 && <InstallmentsList installments={s.installments} total={s.installmentsTotal ?? s.installments.length} />}
                 </div>
               )}
             </div>

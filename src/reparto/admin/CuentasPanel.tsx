@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Search, X, Banknote, ShoppingCart } from 'lucide-react';
 import { fetchClientAccounts, fetchClientStatement } from '../api';
+import InstallmentsList from '../shared/InstallmentsList';
 import type { ClientAccount, ClientStatement } from '../types';
 
 interface Props {
@@ -125,20 +126,27 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
                 ]
                   .sort((a, b) => b.createdAt - a.createdAt)
                   .map((entry) => (
-                    <div key={`${entry.kind}-${entry.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: '#141414' }}>
-                      {entry.kind === 'venta' ? <ShoppingCart size={14} color="#f87171" /> : <Banknote size={14} color="#4ade80" />}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ color: '#fff', fontSize: 13 }}>{entry.kind === 'venta' ? (entry.description || 'Venta cargada') : 'Cobro'}</div>
-                        {entry.items && entry.items.length > 0 && (
-                          <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
-                            {entry.items.map((it) => `${it.quantity} × ${it.description}`).join(' · ')}
-                          </div>
-                        )}
-                        <div style={{ color: '#666', fontSize: 11 }}>{entry.courierName} · {fmtDate(entry.createdAt)}</div>
+                    <div key={`${entry.kind}-${entry.id}`} style={{ padding: '8px 10px', borderRadius: 8, background: '#141414' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {entry.kind === 'venta' ? <ShoppingCart size={14} color="#f87171" /> : <Banknote size={14} color="#4ade80" />}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ color: '#fff', fontSize: 13 }}>{entry.kind === 'venta' ? (entry.description || 'Venta cargada') : 'Cobro'}</div>
+                          {entry.items && entry.items.length > 0 && (
+                            <div style={{ color: '#999', fontSize: 12, marginTop: 2 }}>
+                              {entry.items.map((it) => `${it.quantity} × ${it.description}`).join(' · ')}
+                            </div>
+                          )}
+                          <div style={{ color: '#666', fontSize: 11 }}>{entry.courierName} · {fmtDate(entry.createdAt)}</div>
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: entry.kind === 'venta' ? '#f87171' : '#4ade80' }}>
+                          {entry.kind === 'venta' ? '+' : '-'}{fmt(entry.amount)}
+                        </div>
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: entry.kind === 'venta' ? '#f87171' : '#4ade80' }}>
-                        {entry.kind === 'venta' ? '+' : '-'}{fmt(entry.amount)}
-                      </div>
+                      {entry.kind === 'venta' && entry.installments && entry.installments.length > 0 && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #222' }}>
+                          <InstallmentsList installments={entry.installments} total={entry.installmentsTotal ?? entry.installments.length} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 {statement.sales.length === 0 && statement.payments.length === 0 && (

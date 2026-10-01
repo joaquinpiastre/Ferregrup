@@ -21,6 +21,17 @@ import { suppliersRouter } from './routes/suppliers.js';
 import { logsRouter } from './routes/logs.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
+// Las rutas son async sin try/catch; en Express 4 un error ahí es una promesa
+// rechazada sin capturar, y Node por default mata todo el proceso — así se cayó
+// el servidor para todos los usuarios por un solo query roto (columna faltante).
+// Loguear y seguir vivo evita que un error de un pedido tumbe el resto.
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (el proceso sigue corriendo):', err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (el proceso sigue corriendo):', err);
+});
+
 const app = express();
 app.use(cors());
 // El límite por defecto (100kb) queda corto para confirmar catálogos grandes

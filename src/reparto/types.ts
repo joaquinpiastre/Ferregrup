@@ -114,6 +114,7 @@ export interface Payment {
   checkNumber?: string;
   bank?: string;
   notes?: string;
+  installmentId?: string;
   createdAt: number;
 }
 
@@ -176,6 +177,14 @@ export interface ShiftStop {
 
 // ─── Ventas (cargos a cuenta de cliente) ─────────────────────────────────────
 
+export interface SaleInstallment {
+  id: string;
+  number: number;
+  amount: number;
+  dueDate?: string;
+  paid: number;
+}
+
 export interface Sale {
   id: string;
   clientId?: string;
@@ -185,6 +194,8 @@ export interface Sale {
   amount: number;
   description?: string;
   items: StreetOrderItem[];
+  installmentsTotal?: number;
+  installments: SaleInstallment[];
   createdAt: number;
 }
 
@@ -221,6 +232,9 @@ export interface ClientStatementEntry {
   description?: string;
   method?: PaymentMethod;
   items?: StreetOrderItem[];
+  installmentsTotal?: number;
+  installments?: SaleInstallment[];
+  installmentId?: string;
 }
 
 export interface ClientStatement {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote } from 'lucide-react';
+import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote, ShoppingCart } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { endShift, fetchActiveShift, fetchRouteStops, fetchStreetOrders, postGpsUpdate, startShift, subscribeRouteStops, subscribeStreetOrders } from '../api';
@@ -10,6 +10,7 @@ import ClientesPanel from '../shared/ClientesPanel';
 import CatalogoPanel from '../shared/CatalogoPanel';
 import CobrosForm from './CobrosForm';
 import CuentasPanel from '../admin/CuentasPanel';
+import VentasPanel from '../admin/VentasPanel';
 import type { RouteStop, Session, Shift, StreetOrder } from '../types';
 
 interface Props {
@@ -17,12 +18,13 @@ interface Props {
   onLogout: () => void;
 }
 
-type Section = 'home' | 'ruta' | 'pedido' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros';
+type Section = 'home' | 'ruta' | 'pedido' | 'ventas' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros';
 
 const TITLES: Record<Section, string> = {
   home: 'Inicio',
   ruta: 'Mi ruta',
   pedido: 'Pedido en calle',
+  ventas: 'Ventas',
   clientes: 'Clientes',
   catalogo: 'Catálogo',
   cuentas: 'Cuentas corrientes',
@@ -36,6 +38,7 @@ const sections: SidebarSection[] = [
       { id: 'home', label: 'Inicio', icon: HomeIcon },
       { id: 'ruta', label: 'Mi ruta', icon: MapPin },
       { id: 'pedido', label: 'Pedido en calle', icon: Send },
+      { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
       { id: 'clientes', label: 'Clientes', icon: UserCheck },
       { id: 'catalogo', label: 'Catálogo', icon: Package },
       { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
@@ -118,9 +121,10 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section === 'home' && <Home token={session.token} courierName={session.staff.name} shift={shift} stops={stops} onStart={handleStart} onEnd={handleEnd} />}
           {section === 'ruta' && <RutaDelDia session={session} stops={stops} onChanged={refreshStops} />}
           {section === 'pedido' && <PedidoCalle session={session} orders={orders} onOrderCreated={(o) => setOrders((prev) => [o, ...prev])} onOrderChanged={refreshOrders} />}
+          {section === 'ventas' && <VentasPanel token={session.token} courier={{ id: session.staff.id, name: session.staff.name }} canDelete={false} />}
           {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} />}
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit={false} />}
-          {section === 'cuentas' && <CuentasPanel token={session.token} canOpenStatement={false} />}
+          {section === 'cuentas' && <CuentasPanel token={session.token} />}
           {section === 'cobros' && <CobrosForm session={session} />}
         </div>
       </main>

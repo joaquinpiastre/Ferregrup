@@ -52,7 +52,7 @@ export default function PedidoCalle({ session, orders, onOrderCreated, onOrderCh
   const productSuggestions = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     if (q.length < 2) return [];
-    return catalog.filter((p) => p.description.toLowerCase().includes(q)).slice(0, 6);
+    return catalog.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)).slice(0, 6);
   }, [productQuery, catalog]);
 
   const nearbyClients = useMemo(() => {

@@ -300,3 +300,32 @@ create table if not exists quote_items (
 );
 
 create index if not exists idx_quotes_created on quotes (created_at_ms desc);
+
+-- ─── Ventas en cuotas ────────────────────────────────────────────────────────
+-- Una venta se puede dividir en N cuotas (partes iguales, con vencimiento mensual
+-- a partir de la fecha de la 1ra). El total de la venta (sales.amount) no cambia;
+-- las cuotas son solo el desglose de cómo se va a cobrar. Un cobro puede apuntar
+-- a una cuota puntual (payments.installment_id) para saber qué está pagado.
+
+alter table sales add column if not exists installments_total integer;
+
+create table if not exists sale_installments (
+  id text primary key,
+  sale_id text not null references sales(id) on delete cascade,
+  number integer not null,
+  amount numeric(12,2) not null,
+  due_date date,
+  created_at timestamptz not null default now(),
+  unique (sale_id, number)
+);
+
+create index if not exists idx_sale_installments_sale on sale_installments (sale_id, number);
+
+alter table payments add column if not exists installment_id text references sale_installments(id) on delete set null;
+
+create index if not exists idx_payments_installment on payments (installment_id);
+
+-- Orden estable de los ítems en una venta/cotización: sin esto, json_agg los devuelve
+-- en un orden no garantizado y un recibo puede mostrar los productos mezclados.
+alter table sale_items add column if not exists position integer not null default 0;
+alter table quote_items add column if not exists position integer not null default 0;

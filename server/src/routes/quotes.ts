@@ -50,11 +50,12 @@ quotesRouter.post('/quotes', requireAuth, requireRole('admin'), async (req, res)
        values ($1,$2,$3,$4,$5,$6,$7)`,
       [id, q.clientName ?? null, req.user!.sub, req.user!.name, total, q.notes ?? null, createdAt]
     );
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       await client.query(
-        `insert into quote_items (quote_id, code, description, quantity, unit_price, subtotal)
-         values ($1,$2,$3,$4,$5,$6)`,
-        [id, item.code ?? null, item.description, item.quantity, item.unitPrice, item.subtotal]
+        `insert into quote_items (quote_id, code, description, quantity, unit_price, subtotal, position)
+         values ($1,$2,$3,$4,$5,$6,$7)`,
+        [id, item.code ?? null, item.description, item.quantity, item.unitPrice, item.subtotal, i]
       );
     }
     await client.query('commit');

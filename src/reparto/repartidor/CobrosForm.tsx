@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Printer, Download } from 'lucide-react';
-import { createPayment, fetchClientBalance, subscribeClients } from '../api';
+import { createPayment, fetchClientBalance, fetchClientStatement, subscribeClients } from '../api';
 import { downloadPaymentReceiptPdf, printPaymentReceipt } from '../printReceipt';
 import type { FieldClient, Payment, PaymentMethod, Session } from '../types';
 
@@ -17,6 +17,23 @@ const METHODS: { id: PaymentMethod; label: string }[] = [
 
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
+function fmtDueDate(d?: string) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+interface PendingInstallment {
+  id: string;
+  saleId: string;
+  number: number;
+  total: number;
+  amount: number;
+  paid: number;
+  dueDate?: string;
+  saleDescription?: string;
+}
+
 export default function CobrosForm({ session }: Props) {
   const [clients, setClients] = useState<FieldClient[]>([]);
   useEffect(() => subscribeClients(session.token, setClients), [session.token]);
@@ -31,6 +48,8 @@ export default function CobrosForm({ session }: Props) {
   const [error, setError] = useState('');
   const [receipt, setReceipt] = useState<Payment | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [pendingInstallments, setPendingInstallments] = useState<PendingInstallment[]>([]);
+  const [installmentId, setInstallmentId] = useState<string>('');
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -44,11 +63,34 @@ export default function CobrosForm({ session }: Props) {
     fetchClientBalance(session.token, selectedClient.id)
       .then((b) => { if (!cancelled) setBalance(b.balance); })
       .catch(() => { if (!cancelled) setBalance(null); });
+    fetchClientStatement(session.token, selectedClient.id)
+      .then((st) => {
+        if (cancelled) return;
+        const pending = st.sales.flatMap((s) =>
+          (s.installments ?? [])
+            .filter((inst) => inst.paid < inst.amount)
+            .map((inst) => ({
+              id: inst.id,
+              saleId: s.id,
+              number: inst.number,
+              total: s.installmentsTotal ?? (s.installments?.length ?? 1),
+              amount: inst.amount,
+              paid: inst.paid,
+              dueDate: inst.dueDate,
+              saleDescription: s.description,
+            }))
+        );
+        pending.sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''));
+        setPendingInstallments(pending);
+      })
+      .catch(() => setPendingInstallments([]));
     return () => { cancelled = true; };
   }, [selectedClient, session.token]);
 
   function chooseClient(c: FieldClient) {
     setBalance(null);
+    setPendingInstallments([]);
+    setInstallmentId('');
     setSelectedClient(c);
     setQuery('');
   }
@@ -56,6 +98,14 @@ export default function CobrosForm({ session }: Props) {
   function clearClient() {
     setSelectedClient(null);
     setBalance(null);
+    setPendingInstallments([]);
+    setInstallmentId('');
+  }
+
+  function pickInstallment(id: string) {
+    setInstallmentId(id);
+    const inst = pendingInstallments.find((i) => i.id === id);
+    if (inst) setAmount(String(Math.round((inst.amount - inst.paid) * 100) / 100));
   }
 
   async function submit() {
@@ -84,6 +134,7 @@ export default function CobrosForm({ session }: Props) {
         checkNumber: method === 'cheque' ? checkNumber.trim() : undefined,
         bank: method === 'cheque' ? bank.trim() : undefined,
         notes: notes.trim() || undefined,
+        installmentId: installmentId || undefined,
       });
       setReceipt(created);
       clearClient();
@@ -151,6 +202,32 @@ export default function CobrosForm({ session }: Props) {
           </div>
         )}
       </div>
+
+      {selectedClient && pendingInstallments.length > 0 && (
+        <div className="card">
+          <label>¿A qué cuota corresponde este cobro?</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, cursor: 'pointer' }}>
+              <input type="radio" name="installment" checked={installmentId === ''} onChange={() => setInstallmentId('')} />
+              Pago general (no corresponde a una cuota puntual)
+            </label>
+            {pendingInstallments.map((inst) => {
+              const remaining = Math.round((inst.amount - inst.paid) * 100) / 100;
+              return (
+                <label key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, cursor: 'pointer' }}>
+                  <input type="radio" name="installment" checked={installmentId === inst.id} onChange={() => pickInstallment(inst.id)} />
+                  <span style={{ flex: 1 }}>
+                    Cuota {inst.number}/{inst.total}{inst.dueDate ? ` — vence ${fmtDueDate(inst.dueDate)}` : ''}
+                    {inst.saleDescription ? ` — ${inst.saleDescription}` : ''}
+                    {inst.paid > 0 ? ' (pago parcial)' : ''}
+                  </span>
+                  <strong style={{ color: '#FFE000' }}>debe {fmt(remaining)}</strong>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <label>Monto</label>
