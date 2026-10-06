@@ -76,7 +76,7 @@ export default function StockPanel({ token }: Props) {
   return (
     <div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        <Boxes size={22} color="#FFE000" />
+        <Boxes size={22} color="#FE4806" />
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{products.length - sinStock} de {products.length}</div>
           <div style={{ fontSize: 12, color: '#888' }}>productos con stock · {sinStock} sin stock</div>

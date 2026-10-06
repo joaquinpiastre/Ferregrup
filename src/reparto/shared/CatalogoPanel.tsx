@@ -178,7 +178,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
                     <tr key={p.code}>
                       <td style={{ fontFamily: 'monospace', color: '#888' }}>{p.code}</td>
                       <td style={{ color: '#fff' }}>{p.description}</td>
-                      <td style={{ textAlign: 'right', color: '#FFE000', fontWeight: 600 }}>{fmt(p.unitPrice)}</td>
+                      <td style={{ textAlign: 'right', color: '#FE4806', fontWeight: 600 }}>{fmt(p.unitPrice)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -261,7 +261,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
                 <tr key={p.code} onClick={() => canEdit && openEdit(p)} style={canEdit ? { cursor: 'pointer' } : undefined}>
                   <td style={{ fontFamily: 'monospace', color: '#888' }}>{p.code}</td>
                   <td style={{ color: '#fff' }}>{p.description}</td>
-                  <td style={{ textAlign: 'right', color: '#FFE000', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(p.unitPrice)}</td>
+                  <td style={{ textAlign: 'right', color: '#FE4806', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(p.unitPrice)}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {p.stock <= 0 ? <span className="badge badge-red">Sin stock</span> : p.stock}
                   </td>

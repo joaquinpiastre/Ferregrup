@@ -141,7 +141,7 @@ export default function ClientesPanel({ token, canDelete }: Props) {
           {filtered.map((c) => (
             <div key={c.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                {c.type === 'taller' ? <Building2 size={16} color="#FFE000" /> : <User size={16} color="#60a5fa" />}
+                {c.type === 'taller' ? <Building2 size={16} color="#FE4806" /> : <User size={16} color="#60a5fa" />}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{c.name}</div>
                   <div style={{ color: '#888', fontSize: 12 }}>{c.address}{c.phone ? ` · ${c.phone}` : ''}</div>

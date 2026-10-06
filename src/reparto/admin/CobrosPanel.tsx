@@ -67,7 +67,7 @@ export default function CobrosPanel({ token }: Props) {
   return (
     <div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        <Wallet size={22} color="#FFE000" />
+        <Wallet size={22} color="#FE4806" />
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(total)}</div>
           <div style={{ fontSize: 12, color: '#888' }}>{filtered.length} cobro{filtered.length !== 1 ? 's' : ''}</div>
@@ -106,7 +106,7 @@ export default function CobrosPanel({ token }: Props) {
                   </div>
                   {p.notes && <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>{p.notes}</div>}
                 </div>
-                <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15 }}>{fmt(p.amount)}</div>
+                <div style={{ color: '#FE4806', fontWeight: 700, fontSize: 15 }}>{fmt(p.amount)}</div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Imprimir recibo" onClick={() => printPaymentReceipt(p)}>
                     <Printer size={13} />

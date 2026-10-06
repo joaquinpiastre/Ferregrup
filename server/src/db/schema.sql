@@ -302,7 +302,7 @@ create table if not exists quote_items (
 create index if not exists idx_quotes_created on quotes (created_at_ms desc);
 
 -- ─── Ventas en cuotas ────────────────────────────────────────────────────────
--- Una venta se puede dividir en N cuotas (partes iguales, con vencimiento mensual
+-- Una venta se puede dividir en N cuotas (partes iguales, con vencimiento semanal
 -- a partir de la fecha de la 1ra). El total de la venta (sales.amount) no cambia;
 -- las cuotas son solo el desglose de cómo se va a cobrar. Un cobro puede apuntar
 -- a una cuota puntual (payments.installment_id) para saber qué está pagado.

@@ -3,13 +3,12 @@ import type {
   CatalogProduct,
   ClientAccount,
   ClientStatement,
-  CourierGoal,
+  CourierWeeklyGoals,
   DeliveryList,
   DeliveryListClient,
   FieldClient,
-  GoalMetric,
-  GoalPeriod,
   LivePosition,
+  OverdueReport,
   Payment,
   Quote,
   RouteStop,
@@ -471,24 +470,23 @@ export async function fetchStats(token: string): Promise<Stats> {
 
 // ─── Objetivos de repartidores ────────────────────────────────────────────────
 
-export async function fetchGoals(token: string): Promise<CourierGoal[]> {
-  const data = await request<{ goals: CourierGoal[] }>('/goals', {}, token);
-  return data.goals;
+export async function fetchGoals(token: string): Promise<CourierWeeklyGoals[]> {
+  const data = await request<{ couriers: CourierWeeklyGoals[] }>('/goals', {}, token);
+  return data.couriers;
 }
 
-export function subscribeGoals(token: string, onChange: (goals: CourierGoal[]) => void): () => void {
+export function subscribeGoals(token: string, onChange: (couriers: CourierWeeklyGoals[]) => void): () => void {
   return poll(() => fetchGoals(token), onChange);
 }
 
-export async function setGoal(
-  token: string,
-  goal: { courierId: string; courierName: string; periodType: GoalPeriod; periodStart: string; targetAmount: number; metric: GoalMetric }
-): Promise<void> {
-  await request('/goals', { method: 'POST', body: JSON.stringify(goal) }, token);
+// ─── Atrasados (cuotas vencidas en semanas anteriores y sin cobrar) ───────────
+
+export async function fetchOverdue(token: string): Promise<OverdueReport> {
+  return request<OverdueReport>('/overdue', {}, token);
 }
 
-export async function deleteGoal(token: string, id: string): Promise<void> {
-  await request(`/goals/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+export function subscribeOverdue(token: string, onChange: (report: OverdueReport) => void): () => void {
+  return poll(() => fetchOverdue(token), onChange);
 }
 
 // ─── Proveedores y deudas ──────────────────────────────────────────────────────

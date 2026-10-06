@@ -186,8 +186,8 @@ export default function PedidoCalle({ session, orders, onOrderCreated, onOrderCh
         <label style={{ marginTop: 14 }}>Calle de referencia</label>
         <input className="input-field" placeholder="Ej: Av. San Martín 1200" value={streetLabel} onChange={(e) => setStreetLabel(e.target.value)} />
         {nearbyClients.length > 0 && (
-          <div style={{ marginTop: 8, background: '#2d2500', border: '1px solid #FFE00033', borderRadius: 10, padding: 10 }}>
-            <div style={{ color: '#FFE000', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Otros clientes de la ruta en esa calle</div>
+          <div style={{ marginTop: 8, background: '#2d1100', border: '1px solid #FE480633', borderRadius: 10, padding: 10 }}>
+            <div style={{ color: '#FE4806', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Otros clientes de la ruta en esa calle</div>
             {nearbyClients.map((c) => (
               <div key={c.name + c.address} style={{ color: '#ccc', fontSize: 12 }}>· {c.name} — {c.address}</div>
             ))}
@@ -208,7 +208,7 @@ export default function PedidoCalle({ session, orders, onOrderCreated, onOrderCh
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#2d2d2d')}
                   onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
                   <span style={{ color: '#fff', fontSize: 13 }}>{p.description}</span>
-                  <span style={{ color: '#FFE000', fontWeight: 600, fontSize: 13 }}>{fmt(p.unitPrice)}</span>
+                  <span style={{ color: '#FE4806', fontWeight: 600, fontSize: 13 }}>{fmt(p.unitPrice)}</span>
                 </div>
               ))}
             </div>
@@ -236,12 +236,12 @@ export default function PedidoCalle({ session, orders, onOrderCreated, onOrderCh
             {items.map((it, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#111', padding: '8px 12px', borderRadius: 8 }}>
                 <span style={{ flex: 1, fontSize: 13, color: '#fff' }}>{it.quantity} × {it.description}</span>
-                <span style={{ color: '#FFE000', fontWeight: 600, fontSize: 13 }}>{fmt(it.subtotal)}</span>
+                <span style={{ color: '#FE4806', fontWeight: 600, fontSize: 13 }}>{fmt(it.subtotal)}</span>
                 <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2 }} onClick={() => removeItem(i)}><Trash2 size={13} /></button>
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'right', marginTop: 10, fontSize: 16, fontWeight: 700, color: '#FFE000' }}>Total: {fmt(total)}</div>
+          <div style={{ textAlign: 'right', marginTop: 10, fontSize: 16, fontWeight: 700, color: '#FE4806' }}>Total: {fmt(total)}</div>
         </div>
       )}
 

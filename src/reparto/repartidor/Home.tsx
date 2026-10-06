@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Play, Square } from 'lucide-react';
 import { subscribeGoals } from '../api';
 import GoalProgressBar from '../shared/GoalProgressBar';
-import type { CourierGoal, RouteStop, Shift } from '../types';
+import type { CourierWeeklyGoals, RouteStop, Shift } from '../types';
 
 interface Props {
   token: string;
@@ -13,42 +13,22 @@ interface Props {
   onEnd: () => void;
 }
 
-function periodEndMs(type: CourierGoal['periodType'], startMs: number, periodStart: string): number {
-  if (type === 'semanal') return startMs + 7 * 24 * 60 * 60 * 1000;
-  const end = new Date(`${periodStart}T00:00:00`);
-  end.setMonth(end.getMonth() + 1);
-  return end.getTime();
-}
-
-function pickCurrentGoals(goals: CourierGoal[]): CourierGoal[] {
-  const now = Date.now();
-  const current = (type: CourierGoal['periodType']) =>
-    goals
-      .filter((g) => g.periodType === type)
-      .filter((g) => {
-        const start = new Date(`${g.periodStart}T00:00:00`).getTime();
-        return now >= start && now < periodEndMs(type, start, g.periodStart);
-      })
-      .sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0];
-  return [current('semanal'), current('mensual')].filter((g): g is CourierGoal => !!g);
-}
-
 export default function Home({ token, courierName, shift, stops, onStart, onEnd }: Props) {
   const completed = stops.filter((s) => s.status === 'entregado').length;
   const pending = stops.length - completed;
 
-  const [goals, setGoals] = useState<CourierGoal[]>([]);
+  const [goals, setGoals] = useState<CourierWeeklyGoals[]>([]);
   useEffect(() => subscribeGoals(token, setGoals), [token]);
 
-  const currentGoals = useMemo(() => pickCurrentGoals(goals), [goals]);
+  const currentGoal = useMemo(() => goals[0]?.weeks.find((w) => w.state === 'actual'), [goals]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, color: '#fff' }}>Hola, {courierName}</h1>
 
-      {currentGoals.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, maxWidth: 620 }}>
-          {currentGoals.map((g) => <GoalProgressBar key={g.id} goal={g} />)}
+      {currentGoal && (
+        <div style={{ maxWidth: 420 }}>
+          <GoalProgressBar goal={currentGoal} />
         </div>
       )}
 

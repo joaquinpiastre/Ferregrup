@@ -161,7 +161,7 @@ export default function ProveedoresPanel({ token }: Props) {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Building2 size={15} color="#FFE000" />
+          <Building2 size={15} color="#FE4806" />
           <span style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>Proveedores</span>
         </div>
         <button className="btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setShowSupplierForm((v) => !v)}>

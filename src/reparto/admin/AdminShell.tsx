@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes } from 'lucide-react';
+import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes, AlertTriangle } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { fetchStreetOrders, subscribeStreetOrders } from '../api';
@@ -19,6 +19,7 @@ import CuentasPanel from './CuentasPanel';
 import VentasPanel from './VentasPanel';
 import CotizacionesPanel from './CotizacionesPanel';
 import EstadisticasPanel from './EstadisticasPanel';
+import AtrasadosPanel from './AtrasadosPanel';
 import ObjetivosPanel from './ObjetivosPanel';
 import ProveedoresPanel from './ProveedoresPanel';
 import LogsPanel from './LogsPanel';
@@ -33,7 +34,7 @@ type Section =
   | 'pedidos' | 'rutas' | 'planificacion' | 'mapa' | 'historial'
   | 'clientes' | 'catalogo' | 'stock'
   | 'equipo' | 'trackers'
-  | 'estadisticas' | 'cobros' | 'cuentas' | 'ventas' | 'cotizaciones' | 'objetivos' | 'proveedores'
+  | 'estadisticas' | 'cobros' | 'atrasados' | 'cuentas' | 'ventas' | 'cotizaciones' | 'objetivos' | 'proveedores'
   | 'logs';
 
 const sections: SidebarSection[] = [
@@ -61,6 +62,7 @@ const sections: SidebarSection[] = [
       { id: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
       { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
       { id: 'cobros', label: 'Cobros', icon: Wallet },
+      { id: 'atrasados', label: 'Atrasados', icon: AlertTriangle },
       { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
       { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
       { id: 'objetivos', label: 'Objetivos', icon: Target },
@@ -95,7 +97,7 @@ export default function AdminShell({ session, onLogout }: Props) {
   return (
     <div className="app-shell">
       <AppSidebar
-        brand="FERREGRUP"
+        brand="EL MANÁ"
         tagline="Panel de Mostrador"
         sections={sections}
         activeId={section}
@@ -135,6 +137,7 @@ export default function AdminShell({ session, onLogout }: Props) {
           {section === 'trackers' && <TrackersPanel token={session.token} />}
           {section === 'estadisticas' && <EstadisticasPanel token={session.token} />}
           {section === 'cobros' && <CobrosPanel token={session.token} />}
+          {section === 'atrasados' && <AtrasadosPanel token={session.token} />}
           {section === 'cuentas' && <CuentasPanel token={session.token} />}
           {section === 'ventas' && <VentasPanel token={session.token} />}
           {section === 'cotizaciones' && <CotizacionesPanel token={session.token} />}

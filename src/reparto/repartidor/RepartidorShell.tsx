@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote, ShoppingCart } from 'lucide-react';
+import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote, ShoppingCart, AlertTriangle } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { endShift, fetchActiveShift, fetchRouteStops, fetchStreetOrders, postGpsUpdate, startShift, subscribeRouteStops, subscribeStreetOrders } from '../api';
@@ -9,6 +9,7 @@ import PedidoCalle from './PedidoCalle';
 import ClientesPanel from '../shared/ClientesPanel';
 import CatalogoPanel from '../shared/CatalogoPanel';
 import CobrosForm from './CobrosForm';
+import AtrasadosPanel from '../admin/AtrasadosPanel';
 import CuentasPanel from '../admin/CuentasPanel';
 import VentasPanel from '../admin/VentasPanel';
 import type { RouteStop, Session, Shift, StreetOrder } from '../types';
@@ -18,7 +19,7 @@ interface Props {
   onLogout: () => void;
 }
 
-type Section = 'home' | 'ruta' | 'pedido' | 'ventas' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros';
+type Section = 'home' | 'ruta' | 'pedido' | 'ventas' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros' | 'atrasados';
 
 const TITLES: Record<Section, string> = {
   home: 'Inicio',
@@ -29,6 +30,7 @@ const TITLES: Record<Section, string> = {
   catalogo: 'Catálogo',
   cuentas: 'Cuentas corrientes',
   cobros: 'Cobros',
+  atrasados: 'Atrasados',
 };
 
 const sections: SidebarSection[] = [
@@ -43,6 +45,7 @@ const sections: SidebarSection[] = [
       { id: 'catalogo', label: 'Catálogo', icon: Package },
       { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
       { id: 'cobros', label: 'Cobros', icon: Wallet },
+      { id: 'atrasados', label: 'Atrasados', icon: AlertTriangle },
     ],
   },
 ];
@@ -105,7 +108,7 @@ export default function RepartidorShell({ session, onLogout }: Props) {
   return (
     <div className="app-shell">
       <AppSidebar
-        brand="FERREGRUP"
+        brand="EL MANÁ"
         tagline="Panel de Repartidor"
         sections={sections}
         activeId={section}
@@ -126,6 +129,7 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit={false} />}
           {section === 'cuentas' && <CuentasPanel token={session.token} />}
           {section === 'cobros' && <CobrosForm session={session} />}
+          {section === 'atrasados' && <AtrasadosPanel token={session.token} />}
         </div>
       </main>
     </div>

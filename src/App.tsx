@@ -20,7 +20,7 @@ export default function App() {
         <div className="card" style={{ maxWidth: 480 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Falta configuración</h1>
           <p style={{ color: '#888', fontSize: 14 }}>
-            Ferregrup necesita un backend para el login y la sincronización entre dispositivos. Configurá la variable
+            El Maná necesita un backend para el login y la sincronización entre dispositivos. Configurá la variable
             <code style={{ margin: '0 4px' }}>VITE_API_URL</code> apuntando al servidor (carpeta <code>server/</code>).
           </p>
         </div>

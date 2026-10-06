@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wrench, Menu, X, LogOut } from 'lucide-react';
+import { Menu, X, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface SidebarLink {
@@ -25,14 +25,14 @@ interface Props {
 }
 
 export default function AppSidebar({
-  brand = 'FERREGRUP',
+  brand = 'EL MANÁ',
   tagline = 'Sistema de Gestión',
   sections,
   activeId,
   onNavigate,
   userLabel,
   onLogout,
-  footer = 'v1.1.0 · FERREGRUP © 2026',
+  footer = 'v1.1.0 · El Maná Distribuidora © 2026',
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -45,7 +45,7 @@ export default function AppSidebar({
     <>
       <div className="mobile-topbar">
         <button onClick={() => setOpen(true)} aria-label="Abrir menú"><Menu size={22} /></button>
-        <div style={{ fontWeight: 800, fontSize: 14, color: '#FFE000', letterSpacing: '0.05em' }}>{brand}</div>
+        <img src="/mana-logo.png" alt={brand} style={{ height: 26, width: 'auto' }} />
       </div>
       <div className={`sidebar-backdrop${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
       <aside className={`app-sidebar${open ? ' open' : ''}`} style={{
@@ -58,15 +58,8 @@ export default function AppSidebar({
         <button onClick={() => setOpen(false)} className="sidebar-close" aria-label="Cerrar menú"><X size={18} /></button>
         {/* Logo */}
         <div style={{ padding: '20px 16px 18px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <div style={{ width: 34, height: 34, background: '#FFE000', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Wrench size={18} color="#000" />
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#FFE000', letterSpacing: '0.05em' }}>{brand}</div>
-              <div style={{ fontSize: 9, color: '#444', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{tagline}</div>
-            </div>
-          </div>
+          <img src="/mana-logo.png" alt="El Maná Distribuidora" style={{ display: 'block', width: '100%', maxWidth: 170, height: 'auto' }} />
+          <div style={{ fontSize: 9, color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 10 }}>{tagline}</div>
         </div>
 
         {/* Nav sections */}
@@ -96,7 +89,7 @@ export default function AppSidebar({
                       textAlign: 'left',
                       marginBottom: 1,
                       transition: 'all 0.12s',
-                      background: active ? '#FFE000' : 'transparent',
+                      background: active ? '#FE4806' : 'transparent',
                       color: active ? '#000' : '#777',
                     }}
                     onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'; (e.currentTarget as HTMLButtonElement).style.color = active ? '#000' : '#ccc'; }}

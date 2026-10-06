@@ -244,20 +244,55 @@ export interface ClientStatement {
 
 // ─── Objetivos de repartidores ────────────────────────────────────────────────
 
-export type GoalPeriod = 'semanal' | 'mensual';
-export type GoalMetric = 'cobros' | 'ventas' | 'ambos';
+export interface WeeklyGoal {
+  weekStart: string;
+  weekEnd: string;
+  state: 'pasada' | 'actual' | 'futura';
+  /** Cuotas que vencen esa semana. */
+  due: number;
+  /** Lo que venía sin cobrar de semanas anteriores. */
+  carry: number;
+  target: number;
+  collected: number;
+  /** Lo que falta cobrar (target - collected, nunca negativo). */
+  pending: number;
+}
 
-export interface CourierGoal {
-  id: string;
+export interface CourierWeeklyGoals {
   courierId: string;
   courierName: string;
-  periodType: GoalPeriod;
-  periodStart: string;
-  targetAmount: number;
-  metric: GoalMetric;
-  achieved: number;
-  ventas: number;
-  cobros: number;
+  weeks: WeeklyGoal[];
+}
+
+// ─── Atrasados ────────────────────────────────────────────────────────────────
+
+export interface OverdueInstallment {
+  id: string;
+  saleId: string;
+  number: number;
+  total: number;
+  dueDate: string;
+  weeksLate: number;
+  amount: number;
+  paid: number;
+  remaining: number;
+  courierName: string;
+}
+
+export interface OverdueClient {
+  clientId: string | null;
+  clientName: string;
+  courierNames: string[];
+  overdueCount: number;
+  totalRemaining: number;
+  maxWeeksLate: number;
+  installments: OverdueInstallment[];
+}
+
+export interface OverdueReport {
+  clients: OverdueClient[];
+  totalRemaining: number;
+  totalInstallments: number;
 }
 
 // ─── Proveedores y deudas ──────────────────────────────────────────────────────

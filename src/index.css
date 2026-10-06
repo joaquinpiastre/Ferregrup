@@ -28,7 +28,7 @@ body {
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #FFE000;
+  background: #FE4806;
 }
 
 .sidebar-link {
@@ -49,7 +49,7 @@ body {
   color: #fff;
 }
 .sidebar-link.active {
-  background: #FFE000;
+  background: #FE4806;
   color: #000;
 }
 
@@ -61,7 +61,7 @@ body {
 }
 
 .btn-primary {
-  background: #FFE000;
+  background: #FE4806;
   color: #000;
   font-weight: 600;
   padding: 8px 16px;
@@ -75,7 +75,7 @@ body {
   gap: 6px;
 }
 .btn-primary:hover {
-  background: #D4B800;
+  background: #D63D00;
   transform: translateY(-1px);
 }
 
@@ -127,7 +127,7 @@ body {
   transition: border-color 0.2s;
 }
 .input-field:focus {
-  border-color: #FFE000;
+  border-color: #FE4806;
 }
 .input-field::placeholder {
   color: #666;
@@ -143,7 +143,7 @@ body {
 }
 .badge-green { background: #0d2d1a; color: #4ade80; border: 1px solid #4ade8033; }
 .badge-red { background: #2d0d0d; color: #f87171; border: 1px solid #f8717133; }
-.badge-yellow { background: #2d2500; color: #FFE000; border: 1px solid #FFE00033; }
+.badge-yellow { background: #2d1100; color: #FE4806; border: 1px solid #FE480633; }
 .badge-blue { background: #0d1a2d; color: #60a5fa; border: 1px solid #60a5fa33; }
 .badge-gray { background: #1a1a1a; color: #9ca3af; border: 1px solid #3d3d3d; }
 .badge-orange { background: #2d1800; color: #fb923c; border: 1px solid #fb923c33; }
@@ -233,7 +233,7 @@ h1, h2, h3 {
   transition: border-color 0.2s;
 }
 .stat-card:hover {
-  border-color: #FFE000;
+  border-color: #FE4806;
 }
 
 /* ─── Layout responsive (notebook / PC / tablet / celular) ──────────────── */

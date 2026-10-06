@@ -117,7 +117,7 @@ export default function RutasPanel({ token }: Props) {
               {availableClients.length === 0 ? (
                 <p style={{ color: '#666', fontSize: 13 }}>No hay más clientes para agregar.</p>
               ) : availableClients.map((c) => (
-                <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: selected.has(c.id) ? '#2d2500' : '#111', cursor: 'pointer' }}>
+                <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: selected.has(c.id) ? '#2d1100' : '#111', cursor: 'pointer' }}>
                   <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
                   <div>
                     <div style={{ color: '#fff', fontSize: 13 }}>{c.name}</div>
@@ -151,7 +151,7 @@ export default function RutasPanel({ token }: Props) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{i + 1}. {s.clientName}</div>
                 <div style={{ color: '#888', fontSize: 12 }}>{s.clientAddress}</div>
-                {s.courierNotes && <div style={{ color: '#FFE000', fontSize: 12, marginTop: 2 }}>Nota del repartidor: {s.courierNotes}</div>}
+                {s.courierNotes && <div style={{ color: '#FE4806', fontSize: 12, marginTop: 2 }}>Nota del repartidor: {s.courierNotes}</div>}
               </div>
               <span className={STATUS_BADGE[s.status]}>{STATUS_LABEL[s.status]}</span>
               <button className="btn-danger" style={{ padding: '4px 8px' }} onClick={() => remove(s)}><Trash2 size={13} /></button>

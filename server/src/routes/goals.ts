@@ -1,91 +1,65 @@
 import { Router } from 'express';
-import { z } from 'zod';
-import { requireAuth, requireRole } from '../auth.js';
-import { pool } from '../db/client.js';
-import { logActivity } from '../activityLog.js';
+import { requireAuth } from '../auth.js';
+import { addDays, arToday, loadInstallments, mondayOf, paidUntil, type InstallmentRow } from '../collections.js';
 
 export const goalsRouter = Router();
 
-function periodRangeMs(periodType: 'semanal' | 'mensual', periodStart: string): { start: number; end: number } {
-  const start = new Date(`${periodStart}T00:00:00`).getTime();
-  if (periodType === 'semanal') {
-    return { start, end: start + 7 * 24 * 60 * 60 * 1000 };
+const UPCOMING_WEEKS = 4;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// El objetivo de un repartidor ya no se carga a mano: en cada semana es lo que le toca cobrar
+// de las cuotas de sus ventas — las que vencen esa semana más lo que arrastra sin cobrar de
+// semanas anteriores. Lo cobrado es lo aplicado a esas cuotas durante la semana.
+function weeksForCourier(installments: InstallmentRow[], today: string) {
+  const thisWeek = mondayOf(today);
+  const dueWeeks = installments.map((i) => mondayOf(i.dueDate)).sort();
+  const first = dueWeeks[0];
+  const last = [dueWeeks[dueWeeks.length - 1], thisWeek].sort().pop()!;
+  const lastShown = last < addDays(thisWeek, UPCOMING_WEEKS * 7) ? last : addDays(thisWeek, UPCOMING_WEEKS * 7);
+  const from = first < thisWeek ? first : thisWeek;
+
+  const weeks = [];
+  for (let ws = from; ws <= lastShown; ws = addDays(ws, 7)) {
+    const we = addDays(ws, 7);
+    let due = 0;
+    let carry = 0;
+    let collected = 0;
+    for (const inst of installments) {
+      if (inst.dueDate >= ws && inst.dueDate < we) due += inst.amount;
+      if (inst.dueDate < ws) carry += Math.max(0, inst.amount - paidUntil(inst, ws));
+      for (const p of inst.payments) if (p.day >= ws && p.day < we) collected += p.amount;
+    }
+    const target = due + carry;
+    weeks.push({
+      weekStart: ws,
+      weekEnd: addDays(ws, 6),
+      state: ws < thisWeek ? 'pasada' : ws === thisWeek ? 'actual' : 'futura',
+      due: round2(due),
+      carry: round2(carry),
+      target: round2(target),
+      collected: round2(collected),
+      pending: round2(Math.max(0, target - collected)),
+    });
   }
-  const end = new Date(`${periodStart}T00:00:00`);
-  end.setMonth(end.getMonth() + 1);
-  return { start, end: end.getTime() };
+  return weeks;
 }
 
 goalsRouter.get('/goals', requireAuth, async (req, res) => {
-  const isRepartidor = req.user?.role === 'repartidor';
-  const { rows } = await pool.query(
-    isRepartidor
-      ? `select id, courier_id as "courierId", courier_name as "courierName", period_type as "periodType",
-           period_start::text as "periodStart", target_amount as "targetAmount", metric
-         from courier_goals where courier_id = $1 order by period_start desc`
-      : `select id, courier_id as "courierId", courier_name as "courierName", period_type as "periodType",
-           period_start::text as "periodStart", target_amount as "targetAmount", metric
-         from courier_goals order by period_start desc`,
-    isRepartidor ? [req.user!.sub] : []
-  );
+  const courierId = req.user?.role === 'repartidor' ? req.user.sub : undefined;
+  const installments = await loadInstallments(courierId);
+  const today = arToday();
 
-  const goals = await Promise.all(
-    rows.map(async (g) => {
-      const { start, end } = periodRangeMs(g.periodType, g.periodStart);
-      const [salesRes, paymentsRes] = await Promise.all([
-        pool.query(
-          `select coalesce(sum(amount), 0) as total from sales where courier_id = $1 and created_at_ms >= $2 and created_at_ms < $3`,
-          [g.courierId, start, end]
-        ),
-        pool.query(
-          `select coalesce(sum(amount), 0) as total from payments where courier_id = $1 and created_at_ms >= $2 and created_at_ms < $3`,
-          [g.courierId, start, end]
-        ),
-      ]);
-      const ventas = Number(salesRes.rows[0].total);
-      const cobros = Number(paymentsRes.rows[0].total);
-      const achieved = g.metric === 'ventas' ? ventas : g.metric === 'cobros' ? cobros : ventas + cobros;
-      return { ...g, targetAmount: Number(g.targetAmount), ventas, cobros, achieved };
-    })
-  );
-
-  res.json({ goals });
-});
-
-const goalSchema = z.object({
-  courierId: z.string().min(1),
-  courierName: z.string().min(1),
-  periodType: z.enum(['semanal', 'mensual']),
-  periodStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  targetAmount: z.number().positive(),
-  metric: z.enum(['cobros', 'ventas', 'ambos']).default('ambos'),
-});
-
-goalsRouter.post('/goals', requireAuth, requireRole('admin'), async (req, res) => {
-  const parsed = goalSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' });
-    return;
+  const byCourier = new Map<string, { name: string; list: InstallmentRow[] }>();
+  for (const inst of installments) {
+    const entry = byCourier.get(inst.courierId) ?? { name: inst.courierName, list: [] };
+    entry.list.push(inst);
+    byCourier.set(inst.courierId, entry);
   }
-  const g = parsed.data;
-  const id = `goal-${g.courierId}-${g.periodType}-${g.periodStart}`;
-  await pool.query(
-    `insert into courier_goals (id, courier_id, courier_name, period_type, period_start, target_amount, metric)
-     values ($1,$2,$3,$4,$5,$6,$7)
-     on conflict (courier_id, period_type, period_start)
-     do update set target_amount = excluded.target_amount, metric = excluded.metric, courier_name = excluded.courier_name`,
-    [id, g.courierId, g.courierName, g.periodType, g.periodStart, g.targetAmount, g.metric]
-  );
-  await logActivity(req.user!, 'goal.set', `Definió objetivo ${g.periodType} de ${g.targetAmount} para ${g.courierName}`);
-  res.json({ id });
-});
 
-goalsRouter.delete('/goals/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const del = await pool.query(`delete from courier_goals where id = $1`, [req.params.id]);
-  if (del.rowCount === 0) {
-    res.status(404).json({ error: 'Objetivo no encontrado.' });
-    return;
-  }
-  await logActivity(req.user!, 'goal.delete', `Eliminó un objetivo`);
-  res.json({ ok: true });
+  const couriers = Array.from(byCourier.entries()).map(([id, { name, list }]) => ({
+    courierId: id,
+    courierName: name,
+    weeks: weeksForCourier(list, today),
+  }));
+  res.json({ couriers });
 });

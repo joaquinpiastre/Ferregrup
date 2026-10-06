@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
+import { addDays } from '../collections.js';
 import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
 
 export const salesRouter = Router();
@@ -63,11 +64,6 @@ function splitCents(totalCents: number, count: number): number[] {
   return Array.from({ length: count }, (_, i) => base + (i >= count - remainder ? 1 : 0));
 }
 
-function addMonths(dateStr: string, months: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1 + months, d));
-  return date.toISOString().slice(0, 10);
-}
 
 salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor'), async (req, res) => {
   const parsed = saleSchema.safeParse(req.body);
@@ -89,7 +85,7 @@ salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor'), asyn
     ? splitCents(Math.round(total * 100), s.installments.count).map((cents, i) => ({
         number: i + 1,
         amount: cents / 100,
-        dueDate: addMonths(s.installments!.firstDueDate, i),
+        dueDate: addDays(s.installments!.firstDueDate, i * 7),
       }))
     : null;
 

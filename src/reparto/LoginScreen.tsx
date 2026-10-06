@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { LogIn, Wrench } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { login } from './api';
 import type { Session } from './types';
 
 interface Props {
-  title?: string;
   subtitle?: string;
   onLogin: (session: Session) => void;
 }
 
-export default function LoginScreen({ title = 'Ferregrup', subtitle = 'Iniciá sesión para continuar', onLogin }: Props) {
+export default function LoginScreen({ subtitle = 'Iniciá sesión para continuar', onLogin }: Props) {
   const [id, setId] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -37,10 +36,7 @@ export default function LoginScreen({ title = 'Ferregrup', subtitle = 'Iniciá s
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, background: 'radial-gradient(circle at 50% 0%, #1a1a1a 0%, #0a0a0a 60%)' }}>
       <form onSubmit={handleSubmit} className="card" style={{ width: '100%', maxWidth: 380, padding: 32 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
-          <div style={{ width: 52, height: 52, background: '#FFE000', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-            <Wrench size={26} color="#000" />
-          </div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '0.02em' }}>{title}</h1>
+          <img src="/mana-logo.png" alt="El Maná Distribuidora" style={{ width: 220, maxWidth: '100%', height: 'auto', marginBottom: 6 }} />
           <p style={{ color: '#777', fontSize: 13, marginTop: 4 }}>{subtitle}</p>
         </div>
 

@@ -108,14 +108,14 @@ export default function CotizacionesPanel({ token }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {quotes.map((q) => (
             <div key={q.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}>
-              <FileText size={16} color="#FFE000" style={{ flexShrink: 0 }} />
+              <FileText size={16} color="#FE4806" style={{ flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{q.clientName || 'Sin cliente'}</div>
                 <div style={{ color: '#888', fontSize: 12 }}>
                   {q.staffName} · {q.items.length} ítem{q.items.length !== 1 ? 's' : ''}{q.notes ? ` · ${q.notes}` : ''} · {fmtDate(q.createdAt)}
                 </div>
               </div>
-              <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(q.total)}</div>
+              <div style={{ color: '#FE4806', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(q.total)}</div>
               <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => printQuote(q)}><Printer size={13} /></button>
               <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => downloadQuote(q)}><Download size={13} /></button>
               <button className="btn-danger" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => remove(q)}><Trash2 size={13} /></button>

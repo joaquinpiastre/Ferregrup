@@ -112,6 +112,10 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
     fetchCatalog(token).then(setCatalog).catch(() => {});
   }
 
+  function installmentsLabel(s: Sale): string | undefined {
+    return s.installments.length > 0 ? `${s.installments.length} x ${fmt(s.installments[0].amount)}` : undefined;
+  }
+
   function printSale(s: Sale) {
     printSaleDoc({
       title: 'Venta',
@@ -121,6 +125,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
       items: s.items,
       total: s.amount,
       notes: s.description,
+      installmentsLabel: installmentsLabel(s),
       createdAt: s.createdAt,
     });
   }
@@ -134,6 +139,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
       items: s.items,
       total: s.amount,
       notes: s.description,
+      installmentsLabel: installmentsLabel(s),
       createdAt: s.createdAt,
     });
   }
@@ -144,7 +150,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
     <div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <ShoppingCart size={22} color="#FFE000" />
+          <ShoppingCart size={22} color="#FE4806" />
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(listTotal)}</div>
             <div style={{ fontSize: 12, color: '#888' }}>{filtered.length} venta{filtered.length !== 1 ? 's' : ''} cargada{filtered.length !== 1 ? 's' : ''}</div>
@@ -211,7 +217,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
               </div>
               {installmentsPreview && (
                 <div style={{ gridColumn: '1 / -1', color: '#888', fontSize: 12 }}>
-                  {installmentsPreview.count - 1} cuotas de {fmt(installmentsPreview.base)} y la última de {fmt(installmentsPreview.last)}, una por mes desde el {firstDueDate}.
+                  {installmentsPreview.count - 1} cuotas de {fmt(installmentsPreview.base)} y la última de {fmt(installmentsPreview.last)}, una por semana desde el {firstDueDate}.
                 </div>
               )}
             </div>
@@ -255,7 +261,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
                     {s.description ? ` · ${s.description}` : ''} · {fmtDate(s.createdAt)}
                   </div>
                 </div>
-                <div style={{ color: '#FFE000', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(s.amount)}</div>
+                <div style={{ color: '#FE4806', fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{fmt(s.amount)}</div>
                 <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => printSale(s)}><Printer size={13} /></button>
                 <button className="btn-secondary" style={{ padding: '4px 8px', flexShrink: 0 }} onClick={() => downloadSale(s)}><Download size={13} /></button>
                 {canDelete && (

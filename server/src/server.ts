@@ -17,6 +17,7 @@ import { salesRouter } from './routes/sales.js';
 import { quotesRouter } from './routes/quotes.js';
 import { statsRouter } from './routes/stats.js';
 import { goalsRouter } from './routes/goals.js';
+import { overdueRouter } from './routes/overdue.js';
 import { suppliersRouter } from './routes/suppliers.js';
 import { logsRouter } from './routes/logs.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
@@ -55,6 +56,7 @@ app.use(salesRouter);
 app.use(quotesRouter);
 app.use(statsRouter);
 app.use(goalsRouter);
+app.use(overdueRouter);
 app.use(suppliersRouter);
 app.use(logsRouter);
 

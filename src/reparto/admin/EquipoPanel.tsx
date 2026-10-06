@@ -20,7 +20,7 @@ const ROLE_ICON: Record<StaffRole, typeof Truck> = {
 
 const ROLE_COLOR: Record<StaffRole, string> = {
   admin: '#60a5fa',
-  repartidor: '#FFE000',
+  repartidor: '#FE4806',
 };
 
 const emptyForm = () => ({ id: '', name: '', pin: '', role: 'repartidor' as StaffRole });

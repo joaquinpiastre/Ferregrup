@@ -55,7 +55,7 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
   return (
     <div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-        <Banknote size={22} color="#FFE000" />
+        <Banknote size={22} color="#FE4806" />
         <div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(totalDeuda)}</div>
           <div style={{ fontSize: 12, color: '#888' }}>Total adeudado por clientes ({accounts.filter((a) => a.balance > 0).length} con saldo pendiente)</div>

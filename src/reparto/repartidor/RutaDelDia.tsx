@@ -59,7 +59,7 @@ export default function RutaDelDia({ session, stops, onChanged }: Props) {
               </div>
               <span className={STATUS_BADGE[s.status]}>{STATUS_LABEL[s.status]}</span>
             </div>
-            {s.adminNotes && <div style={{ color: '#FFE000', fontSize: 12, marginTop: 8 }}>Nota del local: {s.adminNotes}</div>}
+            {s.adminNotes && <div style={{ color: '#FE4806', fontSize: 12, marginTop: 8 }}>Nota del local: {s.adminNotes}</div>}
             {s.courierNotes && <div style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Tu nota: {s.courierNotes}</div>}
 
             {!isFinal && (

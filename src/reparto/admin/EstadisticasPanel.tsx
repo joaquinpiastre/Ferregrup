@@ -28,7 +28,7 @@ export default function EstadisticasPanel({ token }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#888', fontSize: 13 }}>
-        <TrendingUp size={15} color="#FFE000" />
+        <TrendingUp size={15} color="#FE4806" />
         Proyección estimada según el ritmo de cobro de las últimas 4 semanas — se recalcula sola con cada cobro y venta nuevos.
       </div>
 
@@ -38,7 +38,7 @@ export default function EstadisticasPanel({ token }: Props) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
           <div className="card">
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#FFE000' }}>{fmt(stats.semana.proyeccionCobros)}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#FE4806' }}>{fmt(stats.semana.proyeccionCobros)}</div>
             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Proyección de cobros</div>
           </div>
           <div className="stat-card">
@@ -58,7 +58,7 @@ export default function EstadisticasPanel({ token }: Props) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
           <div className="card">
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#FFE000' }}>{fmt(stats.mes.proyeccionCobros)}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#FE4806' }}>{fmt(stats.mes.proyeccionCobros)}</div>
             <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>Proyección de cobros</div>
           </div>
           <div className="stat-card">

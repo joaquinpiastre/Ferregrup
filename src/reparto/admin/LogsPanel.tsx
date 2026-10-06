@@ -45,7 +45,7 @@ export default function LogsPanel({ token }: Props) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <ScrollText size={18} color="#FFE000" />
+        <ScrollText size={18} color="#FE4806" />
         <select className="input-field" style={{ width: 220 }} value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)}>
           <option value="todos">Todos los usuarios</option>
           {staff.map((s) => <option key={s.id} value={s.id}>{names.get(s.id) ?? s.id}</option>)}

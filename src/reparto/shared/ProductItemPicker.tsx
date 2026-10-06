@@ -90,7 +90,7 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
                   ) : (
                     <span className="badge badge-green" style={{ flexShrink: 0 }}>Stock: {p.stock}</span>
                   )}
-                  <span style={{ color: '#FFE000', fontWeight: 600, fontSize: 13, flexShrink: 0 }}>{fmt(p.unitPrice)}</span>
+                  <span style={{ color: '#FE4806', fontWeight: 600, fontSize: 13, flexShrink: 0 }}>{fmt(p.unitPrice)}</span>
                 </div>
               ))}
             </div>
@@ -132,7 +132,7 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
                     {it.quantity} × {it.description}
                     {lowStock && <span className="badge badge-red" style={{ marginLeft: 8 }}>Sin stock suficiente</span>}
                   </span>
-                  <span style={{ color: '#FFE000', fontWeight: 600, fontSize: 13, flexShrink: 0 }}>{fmt(it.subtotal)}</span>
+                  <span style={{ color: '#FE4806', fontWeight: 600, fontSize: 13, flexShrink: 0 }}>{fmt(it.subtotal)}</span>
                   <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', padding: 2, flexShrink: 0 }} onClick={() => removeItem(i)}>
                     <Trash2 size={13} />
                   </button>
@@ -140,7 +140,7 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
               );
             })}
           </div>
-          <div style={{ textAlign: 'right', marginTop: 10, fontSize: 16, fontWeight: 700, color: '#FFE000' }}>Total: {fmt(total)}</div>
+          <div style={{ textAlign: 'right', marginTop: 10, fontSize: 16, fontWeight: 700, color: '#FE4806' }}>Total: {fmt(total)}</div>
         </div>
       )}
     </div>

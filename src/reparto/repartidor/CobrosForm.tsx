@@ -221,7 +221,7 @@ export default function CobrosForm({ session }: Props) {
                     {inst.saleDescription ? ` — ${inst.saleDescription}` : ''}
                     {inst.paid > 0 ? ' (pago parcial)' : ''}
                   </span>
-                  <strong style={{ color: '#FFE000' }}>debe {fmt(remaining)}</strong>
+                  <strong style={{ color: '#FE4806' }}>debe {fmt(remaining)}</strong>
                 </label>
               );
             })}
