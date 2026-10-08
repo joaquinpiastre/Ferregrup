@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Clock, LogIn, MapPin, MessageCircle, Phone } from 'lucide-react';
-import { Drill, Hammer, Pliers, Saw, Screwdriver, Tape, Toolbox, Wrench } from './illustrations';
+import { Drill, Hammer, Pliers, Screwdriver, Tape, Wrench } from './illustrations';
 import './landing.css';
 
 interface Props {
@@ -13,19 +13,19 @@ const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola El Ma
 const ADDRESS = 'Av. Granaderos 575, San Rafael, Mendoza';
 
 const BRANDS = [
-  { name: 'Dowen Pagio', color: '#3b82f6', Icon: Wrench, desc: 'Herramientas manuales para el taller y la obra, de marca reconocida en todo el país.' },
-  { name: 'Crossmaster', color: '#facc15', Icon: Drill, desc: 'Herramientas eléctricas, de mano y accesorios con la mejor relación precio-calidad.' },
-  { name: 'BTA', color: '#22c55e', Icon: Pliers, desc: 'Línea de herramientas para uso diario, confiables y de fácil reposición.' },
-  { name: 'Biassoni', color: '#ef4444', Icon: Hammer, desc: 'Herramientas profesionales pensadas para trabajo exigente.' },
+  { name: 'Dowen Pagio', logo: '/marcas/dowen-pagio.svg', color: '#FE4806', desc: 'Herramientas eléctricas y de mano para el hogar, el taller y la obra.' },
+  { name: 'Crossmaster', logo: '/marcas/crossmaster.png', color: '#facc15', desc: 'Herramientas, accesorios y equipos de taller con excelente relación precio-calidad.' },
+  { name: 'BTA', logo: '/marcas/bta.png', color: '#a3a3a3', desc: 'Línea de herramientas para uso diario, confiables y de fácil reposición.' },
+  { name: 'Biassoni', logo: '/marcas/biassoni.png', color: '#e3283c', desc: 'Herramientas profesionales de manos, obra y poda pensadas para trabajo exigente.' },
 ];
 
 const PRODUCTS = [
-  { title: 'Herramientas manuales', text: 'Martillos, pinzas, llaves, destornilladores y todo lo básico que no puede faltar.', tag: 'Clásicos', Art: Hammer },
-  { title: 'Herramientas eléctricas', text: 'Taladros, amoladoras y equipos para trabajar más rápido y con menos esfuerzo.', tag: 'Potencia', Art: Drill },
-  { title: 'Llaves y ajuste', text: 'Juegos de llaves, copas y herramientas de ajuste para mecánica y mantenimiento.', tag: 'Precisión', Art: Wrench },
-  { title: 'Corte y abrasivos', text: 'Sierras, discos y elementos de corte y desbaste para cada material.', tag: 'Filo', Art: Saw },
-  { title: 'Medición y trazado', text: 'Cintas métricas, niveles y escuadras para que cada trabajo salga justo.', tag: 'Exactitud', Art: Tape },
-  { title: 'Organización', text: 'Cajas, maletines y accesorios para llevar las herramientas ordenadas a todos lados.', tag: 'Orden', Art: Toolbox },
+  { title: 'Herramientas eléctricas', text: 'Amoladoras, taladros y atornilladores a batería para trabajar más rápido.', tag: 'Dowen Pagio', img: '/productos/electricas.jpg' },
+  { title: 'Amoladoras y abrasivos', text: 'Discos de desbaste, corte y lijado para cada material.', tag: 'Crossmaster', img: '/productos/abrasivos.jpg' },
+  { title: 'Llaves y ajuste', text: 'Llaves combinadas y de ajuste para mecánica y mantenimiento.', tag: 'Biassoni', img: '/productos/llaves.jpg' },
+  { title: 'Herramientas de obra', text: 'Picos, piquetas y herramientas robustas para construcción.', tag: 'Biassoni', img: '/productos/obra.jpg' },
+  { title: 'Poda y jardín', text: 'Tijeras de podar y herramientas de mano para campo y jardín.', tag: 'Biassoni', img: '/productos/poda.jpg' },
+  { title: 'Taller y mecánica', text: 'Crics, engrasadoras y equipos para el taller.', tag: 'Crossmaster', img: '/productos/taller.jpg' },
 ];
 
 const WHY = [
@@ -84,7 +84,6 @@ export default function Landing({ onEnterPanel, hasSession }: Props) {
       <section className="lp-hero" id="inicio">
         <div className="lp-wrap lp-hero-grid">
           <div>
-            <div className="lp-pill"><i /> Distribuidora de herramientas · San Rafael, Mendoza</div>
             <img className="lp-hero-logo" src="/mana-logo.png" alt="El Maná Distribuidora" />
             <h1>Las herramientas que tu trabajo <em>necesita</em>, al alcance de tu mano.</h1>
             <p className="lead">
@@ -128,13 +127,10 @@ export default function Landing({ onEnterPanel, hasSession }: Props) {
             <p className="sub">Una selección de fabricantes para cubrir desde el uso doméstico hasta el trabajo más exigente.</p>
           </div>
           <div className="lp-brands">
-            {BRANDS.map(({ name, color, Icon, desc }, i) => (
+            {BRANDS.map(({ name, logo, color, desc }, i) => (
               <article key={name} className="lp-brand lp-rv" style={{ ['--bc' as string]: color, transitionDelay: `${i * 90}ms` }}>
-                <div className="ico"><Icon /></div>
-                <div>
-                  <div className="nm">{name}<small>Marca oficial</small></div>
-                  <p className="ds">{desc}</p>
-                </div>
+                <div className="logo"><img src={logo} alt={name} loading="lazy" /></div>
+                <p className="ds">{desc}</p>
               </article>
             ))}
           </div>
@@ -149,12 +145,10 @@ export default function Landing({ onEnterPanel, hasSession }: Props) {
             <p className="sub">Un catálogo pensado para el ferretero, el mecánico, el albañil y el que arregla en casa.</p>
           </div>
           <div className="lp-prods">
-            {PRODUCTS.map(({ title, text, tag, Art }, i) => (
+            {PRODUCTS.map(({ title, text, tag, img }, i) => (
               <article key={title} className="lp-prod lp-rv" style={{ transitionDelay: `${(i % 3) * 90}ms` }}>
-                <div className="art"><Art /></div>
-                <h3>{title}</h3>
-                <p>{text}</p>
-                <span className="tag">{tag}</span>
+                <div className="photo"><img src={img} alt={title} loading="lazy" /><span className="tag">{tag}</span></div>
+                <div className="body"><h3>{title}</h3><p>{text}</p></div>
               </article>
             ))}
           </div>
