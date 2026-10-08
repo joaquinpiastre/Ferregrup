@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import LoginScreen from './reparto/LoginScreen';
+import Landing from './landing/Landing';
 import AdminShell from './reparto/admin/AdminShell';
 import RepartidorShell from './reparto/repartidor/RepartidorShell';
 import { apiEnabled, loadSession, saveSession } from './reparto/api';
@@ -8,10 +9,16 @@ import './index.css';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
+  const [showLogin, setShowLogin] = useState(false);
 
   function handleLogout() {
     saveSession(null);
     setSession(null);
+    setShowLogin(false);
+  }
+
+  if (!session && !showLogin) {
+    return <Landing hasSession={false} onEnterPanel={() => setShowLogin(true)} />;
   }
 
   if (!apiEnabled()) {
@@ -29,7 +36,7 @@ export default function App() {
   }
 
   if (!session) {
-    return <LoginScreen onLogin={(s) => { saveSession(s); setSession(s); }} />;
+    return <LoginScreen onLogin={(s) => { saveSession(s); setSession(s); }} onBack={() => setShowLogin(false)} />;
   }
 
   if (session.staff.role === 'admin') {

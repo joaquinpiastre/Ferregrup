@@ -6,9 +6,10 @@ import type { Session } from './types';
 interface Props {
   subtitle?: string;
   onLogin: (session: Session) => void;
+  onBack?: () => void;
 }
 
-export default function LoginScreen({ subtitle = 'Iniciá sesión para continuar', onLogin }: Props) {
+export default function LoginScreen({ subtitle = 'Iniciá sesión para continuar', onLogin, onBack }: Props) {
   const [id, setId] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
@@ -69,6 +70,11 @@ export default function LoginScreen({ subtitle = 'Iniciá sesión para continuar
         <button className="btn-primary" type="submit" style={{ width: '100%', justifyContent: 'center', padding: '11px' }} disabled={loading}>
           <LogIn size={16} /> {loading ? 'Ingresando...' : 'Ingresar'}
         </button>
+        {onBack && (
+          <button type="button" onClick={onBack} style={{ width: '100%', marginTop: 14, background: 'none', border: 0, color: '#777', fontSize: 13, cursor: 'pointer' }}>
+            ← Volver al inicio
+          </button>
+        )}
       </form>
     </div>
   );
