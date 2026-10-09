@@ -8,7 +8,7 @@ interface Props {
   hasSession: boolean;
 }
 
-const WHATSAPP = '5492604603702';
+const WHATSAPP = '5492604696700';
 const WA_LINK = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola El Maná! Quería consultar por productos.')}`;
 const ADDRESS = 'Av. Granaderos 575, San Rafael, Mendoza';
 
@@ -185,7 +185,7 @@ export default function Landing({ onEnterPanel, hasSession }: Props) {
               <p style={{ margin: '10px 0 0', opacity: .9, lineHeight: 1.55 }}>Consultá precios, disponibilidad y condiciones de entrega.</p>
               <div className="lp-row">
                 <div className="ic"><Phone size={20} /></div>
-                <div><b>WhatsApp</b><span>260 460-3702</span></div>
+                <div><b>WhatsApp</b><span>260 469-6700</span></div>
               </div>
               <a className="lp-btn" style={{ background: '#fff', color: '#c93500', marginTop: 28, position: 'relative', zIndex: 1 }} href={WA_LINK} target="_blank" rel="noreferrer">
                 <MessageCircle size={17} /> Abrir chat
@@ -199,7 +199,7 @@ export default function Landing({ onEnterPanel, hasSession }: Props) {
               </div>
               <div className="lp-row" style={{ marginTop: 16 }}>
                 <div className="ic"><Clock size={20} color="#FE4806" /></div>
-                <div><b>Horarios</b><span>Consultá por WhatsApp</span></div>
+                <div><b>Horarios</b><span>Lunes a viernes de 8:00 a 18:00<br />Sábados de 8:30 a 12:30</span></div>
               </div>
               <div className="lp-map">
                 <iframe title="Mapa El Maná" loading="lazy" src={`https://www.google.com/maps?q=${encodeURIComponent(ADDRESS)}&output=embed`} />

@@ -117,7 +117,7 @@ export function remitoHtml(d: RemitoData): string {
     <div class="brand">
       <img src="${origin}/mana-logo-print.png" alt="El Maná">
       <div class="sub">DISTRIBUIDORA DE HERRAMIENTAS</div>
-      <div class="contact">WhatsApp 2604603702 &nbsp; · &nbsp; AV. Granaderos 575</div>
+      <div class="contact">WhatsApp 2604696700 &nbsp; · &nbsp; AV. Granaderos 575</div>
       <div class="iva">IVA. RESPONSABLE INSCRIPTO</div>
     </div>
     <div class="xbox">

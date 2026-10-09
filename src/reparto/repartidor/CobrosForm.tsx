@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Printer, Download } from 'lucide-react';
 import { createPayment, fetchClientBalance, fetchClientStatement, subscribeClients } from '../api';
-import { downloadPaymentReceiptPdf, printPaymentReceipt } from '../printReceipt';
-import type { FieldClient, Payment, PaymentMethod, Session } from '../types';
+import { downloadPaymentsReceiptPdf, printPaymentsReceipt, type ReceiptLine } from '../printReceipt';
+import type { FieldClient, PaymentMethod, Session } from '../types';
 
 interface Props {
   session: Session;
@@ -46,10 +46,11 @@ export default function CobrosForm({ session }: Props) {
   const [bank, setBank] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
-  const [receipt, setReceipt] = useState<Payment | null>(null);
+  const [receipt, setReceipt] = useState<ReceiptLine[] | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [pendingInstallments, setPendingInstallments] = useState<PendingInstallment[]>([]);
-  const [installmentId, setInstallmentId] = useState<string>('');
+  // cuotas tildadas -> monto a cobrar de cada una (texto, editable)
+  const [selected, setSelected] = useState<Record<string, string>>({});
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -90,7 +91,7 @@ export default function CobrosForm({ session }: Props) {
   function chooseClient(c: FieldClient) {
     setBalance(null);
     setPendingInstallments([]);
-    setInstallmentId('');
+    setSelected({});
     setSelectedClient(c);
     setQuery('');
   }
@@ -99,53 +100,96 @@ export default function CobrosForm({ session }: Props) {
     setSelectedClient(null);
     setBalance(null);
     setPendingInstallments([]);
-    setInstallmentId('');
+    setSelected({});
   }
 
-  function pickInstallment(id: string) {
-    setInstallmentId(id);
-    const inst = pendingInstallments.find((i) => i.id === id);
-    if (inst) setAmount(String(Math.round((inst.amount - inst.paid) * 100) / 100));
+  const remainingOf = (inst: PendingInstallment) => Math.round((inst.amount - inst.paid) * 100) / 100;
+  const selectedList = pendingInstallments.filter((i) => i.id in selected);
+  const selectedTotal = selectedList.reduce((sum, i) => sum + (Number((selected[i.id] ?? '').replace(',', '.')) || 0), 0);
+  const allSelected = pendingInstallments.length > 0 && selectedList.length === pendingInstallments.length;
+
+  function toggleInstallment(inst: PendingInstallment) {
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (inst.id in next) delete next[inst.id];
+      else next[inst.id] = String(remainingOf(inst));
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? {} : Object.fromEntries(pendingInstallments.map((i) => [i.id, String(remainingOf(i))])));
   }
 
   async function submit() {
     setError('');
-    const value = Number(amount.replace(',', '.'));
     if (!selectedClient) {
       setError('Elegí un cliente.');
       return;
     }
-    if (!Number.isFinite(value) || value <= 0) {
-      setError('Ingresá un monto válido.');
-      return;
+    // Cada cuota tildada genera un cobro; si no hay cuotas tildadas es un pago general por el monto escrito.
+    const items: { installmentId?: string; amount: number; line: Omit<ReceiptLine, 'payment'> }[] = [];
+    if (selectedList.length > 0) {
+      for (const inst of selectedList) {
+        const value = Number((selected[inst.id] ?? '').replace(',', '.'));
+        if (!Number.isFinite(value) || value <= 0) {
+          setError(`Ingresá un monto válido para la cuota ${inst.number}/${inst.total}${inst.saleDescription ? ` (${inst.saleDescription})` : ''}.`);
+          return;
+        }
+        items.push({
+          installmentId: inst.id,
+          amount: value,
+          line: { detail: inst.saleDescription ? `Cuota ${inst.number}/${inst.total} — ${inst.saleDescription}` : `Cuota ${inst.number}/${inst.total}`, cuota: `${inst.number}/${inst.total}` },
+        });
+      }
+    } else {
+      const value = Number(amount.replace(',', '.'));
+      if (!Number.isFinite(value) || value <= 0) {
+        setError('Ingresá un monto válido.');
+        return;
+      }
+      items.push({ amount: value, line: {} });
     }
     if (method === 'cheque' && (!checkNumber.trim() || !bank.trim())) {
       setError('Completá número de cheque y banco.');
       return;
     }
+    const done: ReceiptLine[] = [];
     try {
-      const created = await createPayment(session.token, {
-        clientId: selectedClient.id,
-        clientName: selectedClient.name,
-        courierId: session.staff.id,
-        courierName: session.staff.name,
-        amount: value,
-        method,
-        checkNumber: method === 'cheque' ? checkNumber.trim() : undefined,
-        bank: method === 'cheque' ? bank.trim() : undefined,
-        notes: notes.trim() || undefined,
-        installmentId: installmentId || undefined,
-      });
-      setReceipt(created);
-      clearClient();
-      setAmount('');
-      setCheckNumber('');
-      setBank('');
-      setNotes('');
-      setMethod('efectivo');
+      for (const item of items) {
+        const created = await createPayment(session.token, {
+          clientId: selectedClient.id,
+          clientName: selectedClient.name,
+          courierId: session.staff.id,
+          courierName: session.staff.name,
+          amount: item.amount,
+          method,
+          checkNumber: method === 'cheque' ? checkNumber.trim() : undefined,
+          bank: method === 'cheque' ? bank.trim() : undefined,
+          notes: notes.trim() || undefined,
+          installmentId: item.installmentId,
+        });
+        done.push({ payment: created, ...item.line });
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo registrar el cobro.');
+      const msg = e instanceof Error ? e.message : 'No se pudo registrar el cobro.';
+      if (done.length > 0) {
+        // Ya se registraron algunos: los mostramos para no cobrarlos dos veces.
+        setReceipt(done);
+        setError(`Se registraron ${done.length} de ${items.length} cobros. Falló uno: ${msg} Volvé a elegir el cliente para ver las cuotas que quedan.`);
+        clearClient();
+      } else {
+        setError(msg);
+      }
+      return;
     }
+    setReceipt(done);
+    clearClient();
+    setAmount('');
+    setCheckNumber('');
+    setBank('');
+    setNotes('');
+    setMethod('efectivo');
   }
 
   return (
@@ -153,14 +197,21 @@ export default function CobrosForm({ session }: Props) {
       {receipt && (
         <div className="card" style={{ borderColor: '#4ade8033', background: '#0d2d1a' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#4ade80', fontWeight: 700 }}>
-            <CheckCircle2 size={18} /> Cobro registrado
+            <CheckCircle2 size={18} /> {receipt.length > 1 ? `${receipt.length} cobros registrados` : 'Cobro registrado'}
           </div>
-          <div style={{ color: '#fff', marginTop: 8 }}>{receipt.clientName} — {fmt(receipt.amount)} ({METHODS.find((m) => m.id === receipt.method)?.label})</div>
+          <div style={{ color: '#fff', marginTop: 8 }}>
+            {receipt[0].payment.clientName} — {fmt(receipt.reduce((sum, l) => sum + l.payment.amount, 0))} ({METHODS.find((m) => m.id === receipt[0].payment.method)?.label})
+          </div>
+          {receipt.length > 1 && (
+            <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {receipt.map((l) => <div key={l.payment.id}>{l.detail ?? 'Pago general'}: {fmt(l.payment.amount)}</div>)}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => printPaymentReceipt(receipt)}>
+            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => printPaymentsReceipt(receipt)}>
               <Printer size={14} /> Imprimir recibo
             </button>
-            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => downloadPaymentReceiptPdf(receipt)}>
+            <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => downloadPaymentsReceiptPdf(receipt)}>
               <Download size={14} /> Descargar PDF
             </button>
           </div>
@@ -205,33 +256,58 @@ export default function CobrosForm({ session }: Props) {
 
       {selectedClient && pendingInstallments.length > 0 && (
         <div className="card">
-          <label>¿A qué cuota corresponde este cobro?</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, cursor: 'pointer' }}>
-              <input type="radio" name="installment" checked={installmentId === ''} onChange={() => setInstallmentId('')} />
-              Pago general (no corresponde a una cuota puntual)
-            </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <label style={{ margin: 0 }}>Cuotas a cobrar (podés elegir varias)</label>
+            <button className="btn-secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={toggleAll}>
+              {allSelected ? 'Quitar todas' : 'Elegir todas'}
+            </button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             {pendingInstallments.map((inst) => {
-              const remaining = Math.round((inst.amount - inst.paid) * 100) / 100;
+              const checked = inst.id in selected;
               return (
-                <label key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, cursor: 'pointer' }}>
-                  <input type="radio" name="installment" checked={installmentId === inst.id} onChange={() => pickInstallment(inst.id)} />
-                  <span style={{ flex: 1 }}>
-                    Cuota {inst.number}/{inst.total}{inst.dueDate ? ` — vence ${fmtDueDate(inst.dueDate)}` : ''}
-                    {inst.saleDescription ? ` — ${inst.saleDescription}` : ''}
-                    {inst.paid > 0 ? ' (pago parcial)' : ''}
-                  </span>
-                  <strong style={{ color: '#FE4806' }}>debe {fmt(remaining)}</strong>
-                </label>
+                <div key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, border: `1px solid ${checked ? '#FE4806' : '#2d2d2d'}`, background: checked ? '#FE480610' : 'transparent' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, cursor: 'pointer', flex: 1, margin: 0 }}>
+                    <input type="checkbox" checked={checked} onChange={() => toggleInstallment(inst)} />
+                    <span style={{ flex: 1 }}>
+                      Cuota {inst.number}/{inst.total}{inst.dueDate ? ` — vence ${fmtDueDate(inst.dueDate)}` : ''}
+                      {inst.saleDescription ? ` — ${inst.saleDescription}` : ''}
+                      {inst.paid > 0 ? ' (pago parcial)' : ''}
+                      <span style={{ display: 'block', color: '#FE4806', fontWeight: 700, fontSize: 12 }}>debe {fmt(remainingOf(inst))}</span>
+                    </span>
+                  </label>
+                  {checked && (
+                    <input
+                      className="input-field"
+                      inputMode="decimal"
+                      style={{ width: 110, textAlign: 'right' }}
+                      value={selected[inst.id]}
+                      onChange={(e) => setSelected((prev) => ({ ...prev, [inst.id]: e.target.value }))}
+                      aria-label="Monto a cobrar de esta cuota"
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
+          {selectedList.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTop: '1px solid #2d2d2d', color: '#fff', fontWeight: 700 }}>
+              <span>Total a cobrar ({selectedList.length} cuota{selectedList.length !== 1 ? 's' : ''})</span>
+              <span style={{ color: '#FE4806' }}>{fmt(selectedTotal)}</span>
+            </div>
+          )}
         </div>
       )}
 
       <div className="card">
-        <label>Monto</label>
-        <input className="input-field" inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ fontSize: 22, textAlign: 'center' }} />
+        {selectedList.length === 0 ? (
+          <>
+            <label>{pendingInstallments.length > 0 ? 'Monto (pago general, sin elegir cuotas)' : 'Monto'}</label>
+            <input className="input-field" inputMode="decimal" placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ fontSize: 22, textAlign: 'center' }} />
+          </>
+        ) : (
+          <div style={{ textAlign: 'center', fontSize: 26, fontWeight: 800, color: '#FE4806' }}>{fmt(selectedTotal)}</div>
+        )}
 
         <label style={{ marginTop: 14 }}>Método de pago</label>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -262,7 +338,7 @@ export default function CobrosForm({ session }: Props) {
       {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
 
       <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={submit}>
-        Registrar cobro
+        {selectedList.length > 1 ? `Registrar ${selectedList.length} cobros` : 'Registrar cobro'}
       </button>
     </div>
   );
