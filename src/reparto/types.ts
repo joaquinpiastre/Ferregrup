@@ -222,6 +222,8 @@ export interface ClientAccount {
   charged: number;
   paid: number;
   balance: number;
+  /** Vendedor que lo atiende: el de su venta más reciente. */
+  seller?: string | null;
 }
 
 export interface ClientStatementEntry {

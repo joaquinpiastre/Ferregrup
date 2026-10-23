@@ -19,13 +19,13 @@ export default function ObjetivosPanel({ token }: Props) {
   useEffect(() => subscribeGoals(token, setCouriers), [token]);
 
   if (couriers.length === 0) {
-    return <p style={{ color: '#666', fontSize: 14 }}>Todavía no hay cuotas por cobrar. El objetivo de cada repartidor se arma solo a partir de las ventas en cuotas.</p>;
+    return <p style={{ color: '#666', fontSize: 14 }}>Todavía no hay vendedores ni cuotas por cobrar. El objetivo de cada vendedor se arma solo a partir de sus ventas en cuotas.</p>;
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
       <p style={{ color: '#888', fontSize: 13, margin: 0 }}>
-        El objetivo semanal de cada repartidor son las cuotas que vencen esa semana más lo que quedó sin cobrar de semanas anteriores.
+        El objetivo de cada vendedor es lo que tiene que cobrar esa semana (cuotas de sus ventas que vencen) más lo que tiene atrasado de semanas anteriores.
       </p>
       {couriers.map((c) => {
         const current = c.weeks.find((w) => w.state === 'actual');
@@ -37,13 +37,33 @@ export default function ObjetivosPanel({ token }: Props) {
               <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{c.courierName}</div>
             </div>
             {current && <div style={{ maxWidth: 360, marginBottom: 12 }}><GoalProgressBar goal={current} /></div>}
+            {current && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div className="stat-card" style={{ padding: 12, minWidth: 130 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>{fmt(current.due)}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Tiene que cobrar</div>
+                </div>
+                <div className="stat-card" style={{ padding: 12, minWidth: 130 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: current.carry > 0 ? '#f87171' : '#4ade80' }}>{fmt(current.carry)}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Tiene atrasado</div>
+                </div>
+                <div className="stat-card" style={{ padding: 12, minWidth: 130 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: '#FE4806' }}>{fmt(current.target)}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Objetivo</div>
+                </div>
+                <div className="stat-card" style={{ padding: 12, minWidth: 130 }}>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: current.pending > 0 ? '#fbbf24' : '#4ade80' }}>{fmt(current.pending)}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>Le falta cobrar</div>
+                </div>
+              </div>
+            )}
             <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ color: '#888', textAlign: 'right' }}>
                     <th style={{ textAlign: 'left', padding: '10px 12px' }}>Semana</th>
-                    <th style={{ padding: '10px 12px' }}>Cuotas</th>
-                    <th style={{ padding: '10px 12px' }}>Arrastre</th>
+                    <th style={{ padding: '10px 12px' }}>Tiene que cobrar</th>
+                    <th style={{ padding: '10px 12px' }}>Atrasado</th>
                     <th style={{ padding: '10px 12px' }}>Objetivo</th>
                     <th style={{ padding: '10px 12px' }}>Cobrado</th>
                     <th style={{ padding: '10px 12px' }}>{'Faltó'}</th>

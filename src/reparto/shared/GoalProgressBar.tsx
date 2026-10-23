@@ -24,10 +24,17 @@ export default function GoalProgressBar({ goal }: Props) {
         <span style={{ color: '#fff', fontWeight: 700 }}>{fmt(goal.collected)}</span>
         <span style={{ color: '#666' }}>de {fmt(goal.target)} ({pct}%)</span>
       </div>
-      <div style={{ marginTop: 8, fontSize: 12, color: '#888' }}>
-        Cuotas de la semana {fmt(goal.due)}
-        {goal.carry > 0 && <> · <span style={{ color: '#f87171' }}>vencido de semanas anteriores {fmt(goal.carry)}</span></>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div style={{ flex: 1, background: '#141414', borderRadius: 8, padding: '8px 10px' }}>
+          <div style={{ fontSize: 11, color: '#888' }}>Tiene que cobrar</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{fmt(goal.due)}</div>
+        </div>
+        <div style={{ flex: 1, background: '#141414', borderRadius: 8, padding: '8px 10px' }}>
+          <div style={{ fontSize: 11, color: '#888' }}>Atrasado</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: goal.carry > 0 ? '#f87171' : '#4ade80' }}>{fmt(goal.carry)}</div>
+        </div>
       </div>
+      <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>Objetivo de la semana = tiene que cobrar + atrasado</div>
     </div>
   );
 }

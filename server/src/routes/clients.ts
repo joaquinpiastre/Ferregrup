@@ -21,8 +21,12 @@ clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin', 'repart
   const { rows } = await pool.query(`
     select c.id, c.name, c.address, c.phone, c.type,
       coalesce(s.total, 0) as charged,
-      coalesce(p.total, 0) as paid
+      coalesce(p.total, 0) as paid,
+      ls.courier_name as seller
     from clients c
+    left join lateral (
+      select courier_name from sales where client_id = c.id order by created_at_ms desc limit 1
+    ) ls on true
     left join (select client_id, sum(amount) as total from sales where client_id is not null group by client_id) s on s.client_id = c.id
     left join (select client_id, sum(amount) as total from payments where client_id is not null group by client_id) p on p.client_id = c.id
     where c.active = true

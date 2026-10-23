@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Banknote, ShoppingCart } from 'lucide-react';
+import { Search, X, Banknote, ShoppingCart, UserRound } from 'lucide-react';
 import { fetchClientAccounts, fetchClientStatement } from '../api';
 import InstallmentsList from '../shared/InstallmentsList';
 import type { ClientAccount, ClientStatement } from '../types';
@@ -46,7 +46,7 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return accounts
-      .filter((a) => !q || a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q))
+      .filter((a) => !q || a.name.toLowerCase().includes(q) || a.address.toLowerCase().includes(q) || (a.seller ?? '').toLowerCase().includes(q))
       .sort((a, b) => b.balance - a.balance);
   }, [accounts, search]);
 
@@ -64,7 +64,7 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
 
       <div style={{ position: 'relative', marginBottom: 16 }}>
         <Search size={14} color="#666" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-        <input className="input-field" style={{ paddingLeft: 32 }} placeholder="Buscar cliente por nombre o dirección..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input-field" style={{ paddingLeft: 32 }} placeholder="Buscar por cliente, dirección o vendedor..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       {loading ? (
@@ -78,6 +78,9 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{a.name}</div>
                 <div style={{ color: '#888', fontSize: 12 }}>{a.address}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginTop: 3, color: a.seller ? '#FE4806' : '#555' }}>
+                  <UserRound size={12} /> {a.seller ? `Vendedor: ${a.seller}` : 'Sin vendedor asignado'}
+                </div>
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, color: a.balance > 0 ? '#f87171' : a.balance < 0 ? '#4ade80' : '#666' }}>
@@ -97,6 +100,9 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
               <div>
                 <div style={{ color: '#fff', fontWeight: 700, fontSize: 17 }}>{selected.name}</div>
                 <div style={{ color: '#888', fontSize: 12 }}>{selected.address}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginTop: 4, color: selected.seller ? '#FE4806' : '#555' }}>
+                  <UserRound size={12} /> {selected.seller ? `Vendedor: ${selected.seller}` : 'Sin vendedor asignado'}
+                </div>
               </div>
               <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={closeAccount}><X size={14} /></button>
             </div>

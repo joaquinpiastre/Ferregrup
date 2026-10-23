@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../auth.js';
+import { pool } from '../db/client.js';
 import { addDays, arToday, loadInstallments, mondayOf, paidUntil, type InstallmentRow } from '../collections.js';
 
 export const goalsRouter = Router();
@@ -13,8 +14,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 function weeksForCourier(installments: InstallmentRow[], today: string) {
   const thisWeek = mondayOf(today);
   const dueWeeks = installments.map((i) => mondayOf(i.dueDate)).sort();
-  const first = dueWeeks[0];
-  const last = [dueWeeks[dueWeeks.length - 1], thisWeek].sort().pop()!;
+  const first = dueWeeks[0] ?? thisWeek;
+  const last = [dueWeeks[dueWeeks.length - 1] ?? thisWeek, thisWeek].sort().pop()!;
   const lastShown = last < addDays(thisWeek, UPCOMING_WEEKS * 7) ? last : addDays(thisWeek, UPCOMING_WEEKS * 7);
   const from = first < thisWeek ? first : thisWeek;
 
@@ -56,10 +57,18 @@ goalsRouter.get('/goals', requireAuth, async (req, res) => {
     byCourier.set(inst.courierId, entry);
   }
 
-  const couriers = Array.from(byCourier.entries()).map(([id, { name, list }]) => ({
-    courierId: id,
-    courierName: name,
-    weeks: weeksForCourier(list, today),
-  }));
+  // El admin ve a todos los vendedores activos, aunque todavía no tengan cuotas (objetivo en 0).
+  if (!courierId) {
+    const { rows: staff } = await pool.query(`select id, name from staff where role = 'repartidor' and active = true`);
+    for (const s of staff) if (!byCourier.has(s.id)) byCourier.set(s.id, { name: s.name, list: [] });
+  }
+
+  const couriers = Array.from(byCourier.entries())
+    .map(([id, { name, list }]) => ({
+      courierId: id,
+      courierName: name,
+      weeks: weeksForCourier(list, today),
+    }))
+    .sort((a, b) => a.courierName.localeCompare(b.courierName, 'es'));
   res.json({ couriers });
 });
