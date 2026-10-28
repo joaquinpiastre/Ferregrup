@@ -329,3 +329,29 @@ create index if not exists idx_payments_installment on payments (installment_id)
 -- en un orden no garantizado y un recibo puede mostrar los productos mezclados.
 alter table sale_items add column if not exists position integer not null default 0;
 alter table quote_items add column if not exists position integer not null default 0;
+
+-- ─── Camioneta: stock de mercadería que se llevan los repartidores ──────────────
+-- La mercadería que sube a la camioneta sale del stock del depósito (catalog_products.stock)
+-- y queda acá hasta que se devuelve al depósito o se da de baja como muestra.
+
+create table if not exists van_stock (
+  code text primary key references catalog_products(code),
+  quantity integer not null default 0
+);
+
+create table if not exists van_movements (
+  id uuid primary key default gen_random_uuid(),
+  code text not null,
+  description text not null,
+  quantity integer not null,
+  kind text not null check (kind in ('carga', 'devolucion', 'muestra')),
+  courier_id text references staff(id),
+  courier_name text,
+  notes text,
+  staff_id text not null references staff(id),
+  staff_name text not null,
+  created_at_ms bigint not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_van_movements_created on van_movements (created_at_ms desc);

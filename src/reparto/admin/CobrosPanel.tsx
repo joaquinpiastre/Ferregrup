@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Wallet, Banknote, Landmark, FileText, HelpCircle, Printer, Download } from 'lucide-react';
-import { subscribePayments } from '../api';
+import { Wallet, Banknote, Landmark, FileText, HelpCircle, Printer, Download, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { deletePayment, fetchPayments, subscribePayments, updatePayment } from '../api';
+import CobrosForm from '../repartidor/CobrosForm';
 import { downloadPaymentReceiptPdf, printPaymentReceipt } from '../printReceipt';
-import type { Payment, PaymentMethod } from '../types';
+import type { Payment, PaymentMethod, Session } from '../types';
 
 function startOfWeek(d: Date): Date {
   const date = new Date(d);
@@ -14,7 +15,7 @@ function startOfWeek(d: Date): Date {
 }
 
 interface Props {
-  token: string;
+  session: Session;
 }
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -39,8 +40,19 @@ function fmtDate(ts: number) {
 
 type RangeFilter = 'todos' | 'esta_semana' | 'semana_pasada';
 
-export default function CobrosPanel({ token }: Props) {
+export default function CobrosPanel({ session }: Props) {
+  const token = session.token;
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Payment | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editMethod, setEditMethod] = useState<PaymentMethod>('efectivo');
+  const [editCheck, setEditCheck] = useState('');
+  const [editBank, setEditBank] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editError, setEditError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [courierFilter, setCourierFilter] = useState('todos');
   const [methodFilter, setMethodFilter] = useState<'todos' | PaymentMethod>('todos');
   const [rangeFilter, setRangeFilter] = useState<RangeFilter>('todos');
@@ -64,15 +76,80 @@ export default function CobrosPanel({ token }: Props) {
 
   const total = filtered.reduce((sum, p) => sum + p.amount, 0);
 
+  function refresh() {
+    fetchPayments(token).then(setPayments).catch(() => {});
+  }
+
+  function startEdit(p: Payment) {
+    setEditing(p);
+    setEditAmount(String(p.amount));
+    setEditMethod(p.method);
+    setEditCheck(p.checkNumber ?? '');
+    setEditBank(p.bank ?? '');
+    setEditNotes(p.notes ?? '');
+    setEditError('');
+  }
+
+  async function saveEdit() {
+    if (!editing || saving) return;
+    const amount = Number(editAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setEditError('Ingresá un monto válido.');
+      return;
+    }
+    if (editMethod === 'cheque' && (!editCheck.trim() || !editBank.trim())) {
+      setEditError('Completá número de cheque y banco.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updatePayment(token, editing.id, {
+        amount,
+        method: editMethod,
+        checkNumber: editMethod === 'cheque' ? editCheck.trim() : null,
+        bank: editMethod === 'cheque' ? editBank.trim() : null,
+        notes: editNotes.trim() || null,
+      });
+      setEditing(null);
+      refresh();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : 'No se pudo guardar el cobro.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(p: Payment) {
+    if (!confirm(`¿Eliminar el cobro de ${fmt(p.amount)} de ${p.clientName}${p.installmentId ? ' (la cuota vuelve a quedar pendiente)' : ''}?`)) return;
+    setActionError('');
+    try {
+      await deletePayment(token, p.id);
+      refresh();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'No se pudo eliminar el cobro.');
+    }
+  }
+
   return (
     <div>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
         <Wallet size={22} color="#FE4806" />
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{fmt(total)}</div>
           <div style={{ fontSize: 12, color: '#888' }}>{filtered.length} cobro{filtered.length !== 1 ? 's' : ''}</div>
         </div>
+        <button className={showForm ? 'btn-secondary' : 'btn-primary'} onClick={() => setShowForm((v) => !v)}>
+          {showForm ? <><X size={14} /> Cerrar</> : <><Plus size={14} /> Registrar cobro</>}
+        </button>
       </div>
+
+      {showForm && (
+        <div style={{ maxWidth: 560, marginBottom: 20 }}>
+          <CobrosForm session={session} />
+        </div>
+      )}
+
+      {actionError && <div style={{ color: '#f87171', fontSize: 13, marginBottom: 12 }}>{actionError}</div>}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <select className="input-field" style={{ width: 200 }} value={courierFilter} onChange={(e) => setCourierFilter(e.target.value)}>
@@ -114,10 +191,64 @@ export default function CobrosPanel({ token }: Props) {
                   <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Descargar PDF" onClick={() => downloadPaymentReceiptPdf(p)}>
                     <Download size={13} />
                   </button>
+                  <button className="btn-secondary" style={{ padding: '4px 8px' }} title="Corregir cobro" onClick={() => startEdit(p)}>
+                    <Pencil size={13} />
+                  </button>
+                  <button className="btn-danger" style={{ padding: '4px 8px' }} title="Eliminar cobro" onClick={() => void remove(p)}>
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {editing && (
+        <div style={{ position: 'fixed', inset: 0, background: '#000000aa', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setEditing(null)}>
+          <div className="card" style={{ maxWidth: 440, width: '100%', maxHeight: '85vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 17 }}>Corregir cobro</div>
+                <div style={{ color: '#888', fontSize: 12 }}>{editing.clientName} · cargado por {editing.courierName}</div>
+              </div>
+              <button className="btn-secondary" style={{ padding: '4px 8px' }} onClick={() => setEditing(null)}><X size={14} /></button>
+            </div>
+
+            <label>Monto</label>
+            <input className="input-field" inputMode="decimal" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+
+            <label style={{ marginTop: 14 }}>Método de pago</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {Object.entries(METHOD_LABEL).map(([k, v]) => (
+                <button key={k} className={editMethod === k ? 'btn-primary' : 'btn-secondary'} style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setEditMethod(k as PaymentMethod)}>
+                  {v}
+                </button>
+              ))}
+            </div>
+
+            {editMethod === 'cheque' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label>Número de cheque</label>
+                  <input className="input-field" value={editCheck} onChange={(e) => setEditCheck(e.target.value)} />
+                </div>
+                <div>
+                  <label>Banco</label>
+                  <input className="input-field" value={editBank} onChange={(e) => setEditBank(e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            <label style={{ marginTop: 14 }}>Observaciones</label>
+            <textarea className="input-field" rows={2} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} style={{ resize: 'vertical' }} />
+
+            {editError && <div style={{ color: '#f87171', fontSize: 13, marginTop: 12 }}>{editError}</div>}
+
+            <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: 12, marginTop: 16 }} onClick={() => void saveEdit()} disabled={saving}>
+              Guardar cambios
+            </button>
+          </div>
         </div>
       )}
     </div>

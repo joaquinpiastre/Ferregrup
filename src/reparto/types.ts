@@ -118,6 +118,30 @@ export interface Payment {
   createdAt: number;
 }
 
+// ─── Camioneta ──────────────────────────────────────────────────────────────
+
+export type VanMovementKind = 'carga' | 'devolucion' | 'muestra';
+
+export interface VanItem {
+  code: string;
+  description: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+export interface VanMovement {
+  id: string;
+  code: string;
+  description: string;
+  quantity: number;
+  kind: VanMovementKind;
+  courierId?: string;
+  courierName?: string;
+  notes?: string;
+  staffName: string;
+  createdAt: number;
+}
+
 // ─── Equipo ─────────────────────────────────────────────────────────────────
 
 export interface TeamMember {

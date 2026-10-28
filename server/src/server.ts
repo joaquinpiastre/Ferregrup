@@ -20,6 +20,7 @@ import { goalsRouter } from './routes/goals.js';
 import { overdueRouter } from './routes/overdue.js';
 import { suppliersRouter } from './routes/suppliers.js';
 import { logsRouter } from './routes/logs.js';
+import { vanRouter } from './routes/van.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
 // Las rutas son async sin try/catch; en Express 4 un error ahí es una promesa
@@ -59,6 +60,7 @@ app.use(goalsRouter);
 app.use(overdueRouter);
 app.use(suppliersRouter);
 app.use(logsRouter);
+app.use(vanRouter);
 
 app.listen(config.port, () => {
   console.log(`Ferregrup server escuchando en :${config.port}`);

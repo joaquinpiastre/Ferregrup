@@ -10,6 +10,7 @@ import type {
   LivePosition,
   OverdueReport,
   Payment,
+  PaymentMethod,
   Quote,
   RouteStop,
   RouteStopStatus,
@@ -28,6 +29,9 @@ import type {
   SupplierPaymentMethod,
   TeamMember,
   Tracker,
+  VanItem,
+  VanMovement,
+  VanMovementKind,
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
@@ -296,6 +300,31 @@ export async function createPayment(token: string, payment: Omit<Payment, 'id' |
   return { ...payment, id: data.id, createdAt: data.createdAt };
 }
 
+export async function updatePayment(
+  token: string,
+  id: string,
+  patch: { amount?: number; method?: PaymentMethod; checkNumber?: string | null; bank?: string | null; notes?: string | null }
+): Promise<void> {
+  await request(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token);
+}
+
+export async function deletePayment(token: string, id: string): Promise<void> {
+  await request(`/payments/${id}`, { method: 'DELETE' }, token);
+}
+
+// ─── Camioneta ──────────────────────────────────────────────────────────────
+
+export async function fetchVan(token: string): Promise<{ items: VanItem[]; movements: VanMovement[] }> {
+  return request('/van', {}, token);
+}
+
+export async function moveVanStock(
+  token: string,
+  move: { code: string; quantity: number; kind: VanMovementKind; courierId?: string; notes?: string }
+): Promise<void> {
+  await request('/van/move', { method: 'POST', body: JSON.stringify(move) }, token);
+}
+
 // ─── Equipo ─────────────────────────────────────────────────────────────────
 
 export async function fetchTeam(token: string): Promise<TeamMember[]> {
@@ -430,7 +459,7 @@ export async function createSale(
     courierName: string;
     description?: string;
     items: StreetOrderItem[];
-    installments?: { count: number; firstDueDate: string };
+    installments?: { count: number; firstDueDate: string; frequency: 'semanal' | 'mensual' };
   }
 ): Promise<void> {
   await request('/sales', { method: 'POST', body: JSON.stringify(sale) }, token);

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, X, Banknote, ShoppingCart, UserRound } from 'lucide-react';
-import { fetchClientAccounts, fetchClientStatement } from '../api';
+import { Search, X, Banknote, ShoppingCart, UserRound, Trash2 } from 'lucide-react';
+import { deletePayment, fetchClientAccounts, fetchClientStatement } from '../api';
 import InstallmentsList from '../shared/InstallmentsList';
 import type { ClientAccount, ClientStatement } from '../types';
 
 interface Props {
   token: string;
   canOpenStatement?: boolean;
+  canDeletePayments?: boolean;
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
@@ -15,7 +16,7 @@ function fmtDate(ts: number) {
   return new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function CuentasPanel({ token, canOpenStatement = true }: Props) {
+export default function CuentasPanel({ token, canOpenStatement = true, canDeletePayments = false }: Props) {
   const [accounts, setAccounts] = useState<ClientAccount[]>([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ClientAccount | null>(null);
@@ -32,6 +33,23 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
     if (!selected) return;
     fetchClientStatement(token, selected.id).then(setStatement).catch(() => setStatement(null));
   }, [selected, token]);
+
+  async function removePayment(paymentId: string, amount: number) {
+    if (!selected || !confirm(`¿Eliminar el cobro de ${fmt(amount)} de ${selected.name}? La cuenta y las cuotas se recalculan.`)) return;
+    try {
+      await deletePayment(token, paymentId);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'No se pudo eliminar el cobro.');
+      return;
+    }
+    refresh();
+    fetchClientStatement(token, selected.id).then(setStatement).catch(() => setStatement(null));
+    // el saldo del encabezado sale de la lista de cuentas: lo recalculamos con los datos nuevos
+    fetchClientAccounts(token).then((rows) => {
+      setAccounts(rows);
+      setSelected(rows.find((r) => r.id === selected.id) ?? selected);
+    }).catch(() => {});
+  }
 
   function openAccount(a: ClientAccount) {
     setStatement(null);
@@ -147,6 +165,11 @@ export default function CuentasPanel({ token, canOpenStatement = true }: Props) 
                         <div style={{ fontWeight: 700, fontSize: 13, color: entry.kind === 'venta' ? '#f87171' : '#4ade80' }}>
                           {entry.kind === 'venta' ? '+' : '-'}{fmt(entry.amount)}
                         </div>
+                        {canDeletePayments && entry.kind === 'pago' && (
+                          <button className="btn-danger" style={{ padding: '4px 8px', flexShrink: 0 }} title="Eliminar cobro" onClick={() => void removePayment(entry.id, entry.amount)}>
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                       {entry.kind === 'venta' && entry.installments && entry.installments.length > 0 && (
                         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #222' }}>

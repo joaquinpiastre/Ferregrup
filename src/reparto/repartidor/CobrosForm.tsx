@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Printer, Download } from 'lucide-react';
-import { createPayment, fetchClientBalance, fetchClientStatement, subscribeClients } from '../api';
+import { createPayment, fetchClientBalance, fetchClientStatement, fetchStaffList, subscribeClients } from '../api';
 import { downloadPaymentsReceiptPdf, printPaymentsReceipt, type ReceiptLine } from '../printReceipt';
-import type { FieldClient, PaymentMethod, Session } from '../types';
+import type { FieldClient, PaymentMethod, Session, Staff } from '../types';
 
 interface Props {
   session: Session;
@@ -37,6 +37,15 @@ interface PendingInstallment {
 export default function CobrosForm({ session }: Props) {
   const [clients, setClients] = useState<FieldClient[]>([]);
   useEffect(() => subscribeClients(session.token, setClients), [session.token]);
+
+  // El admin carga cobros a nombre de un repartidor (por defecto, a nombre propio); el repartidor siempre a nombre propio.
+  const isAdmin = session.staff.role === 'admin';
+  const [team, setTeam] = useState<Staff[]>([]);
+  const [courierId, setCourierId] = useState(session.staff.id);
+  useEffect(() => {
+    if (isAdmin) fetchStaffList(session.token).then(setTeam).catch(() => {});
+  }, [isAdmin, session.token]);
+  const courier = team.find((m) => m.id === courierId) ?? session.staff;
 
   const [query, setQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<FieldClient | null>(null);
@@ -160,8 +169,8 @@ export default function CobrosForm({ session }: Props) {
         const created = await createPayment(session.token, {
           clientId: selectedClient.id,
           clientName: selectedClient.name,
-          courierId: session.staff.id,
-          courierName: session.staff.name,
+          courierId: courier.id,
+          courierName: courier.name,
           amount: item.amount,
           method,
           checkNumber: method === 'cheque' ? checkNumber.trim() : undefined,
@@ -215,6 +224,16 @@ export default function CobrosForm({ session }: Props) {
               <Download size={14} /> Descargar PDF
             </button>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="card">
+          <label>Cobro a nombre de</label>
+          <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)}>
+            {team.filter((m) => m.role === 'repartidor').map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            <option value={session.staff.id}>{session.staff.name} (yo)</option>
+          </select>
         </div>
       )}
 
