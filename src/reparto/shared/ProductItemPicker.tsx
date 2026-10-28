@@ -21,9 +21,9 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
 
   const productSuggestions = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
+    if (q.length < 2 || selectedCode) return [];
     return catalog.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)).slice(0, 6);
-  }, [productQuery, catalog]);
+  }, [productQuery, catalog, selectedCode]);
 
   function pickProduct(p: CatalogProduct) {
     setProductQuery(p.description);
@@ -67,7 +67,7 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
           Agregar producto
         </div>
         <label>Producto</label>
-        <div style={{ position: 'relative' }}>
+        <div>
           <input
             className="input-field"
             placeholder="Buscar en el catálogo o escribir manualmente..."
@@ -75,7 +75,7 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
             onChange={(e) => { setProductQuery(e.target.value); setSelectedCode(undefined); }}
           />
           {productSuggestions.length > 0 && (
-            <div className="card" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, padding: 6, marginTop: 4 }}>
+            <div className="card" style={{ padding: 6, marginTop: 6, maxHeight: 260, overflowY: 'auto' }}>
               {productSuggestions.map((p) => (
                 <div
                   key={p.code}
