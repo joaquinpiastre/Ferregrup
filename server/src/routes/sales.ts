@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
-import { addDays } from '../collections.js';
+import { addDays, addMonths } from '../collections.js';
 import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
 
 export const salesRouter = Router();
@@ -44,6 +44,7 @@ const itemSchema = z.object({
 const installmentsSchema = z.object({
   count: z.number().int().min(2).max(60),
   firstDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  frequency: z.enum(['semanal', 'mensual']).default('semanal'),
 });
 
 const saleSchema = z.object({
@@ -85,7 +86,9 @@ salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor'), asyn
     ? splitCents(Math.round(total * 100), s.installments.count).map((cents, i) => ({
         number: i + 1,
         amount: cents / 100,
-        dueDate: addDays(s.installments!.firstDueDate, i * 7),
+        dueDate: s.installments!.frequency === 'mensual'
+          ? addMonths(s.installments!.firstDueDate, i)
+          : addDays(s.installments!.firstDueDate, i * 7),
       }))
     : null;
 

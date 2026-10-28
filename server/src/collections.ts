@@ -14,6 +14,15 @@ export function addDays(dateStr: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Suma meses conservando el día; si el mes destino es más corto cae en su último día (31/1 + 1 mes = 28/2). */
+export function addMonths(dateStr: string, months: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(d, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
 export function mondayOf(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   return addDays(dateStr, -((d.getUTCDay() + 6) % 7));

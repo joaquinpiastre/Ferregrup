@@ -37,6 +37,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
   const [useInstallments, setUseInstallments] = useState(false);
   const [installmentsCount, setInstallmentsCount] = useState('12');
   const [firstDueDate, setFirstDueDate] = useState(today());
+  const [frequency, setFrequency] = useState<'semanal' | 'mensual'>('semanal');
   const [error, setError] = useState('');
   const [courierFilter, setCourierFilter] = useState('todos');
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -78,6 +79,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
     setUseInstallments(false);
     setInstallmentsCount('12');
     setFirstDueDate(today());
+    setFrequency('semanal');
     setError('');
     setShowForm(true);
   }
@@ -97,7 +99,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
         courierName: assignedCourier.name,
         description: description.trim() || undefined,
         items,
-        installments: useInstallments ? { count, firstDueDate } : undefined,
+        installments: useInstallments ? { count, firstDueDate, frequency } : undefined,
       });
       setShowForm(false);
       fetchCatalog(token).then(setCatalog).catch(() => {});
@@ -207,6 +209,16 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
           </div>
           {useInstallments && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label>Frecuencia de las cuotas</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['semanal', 'mensual'] as const).map((f) => (
+                    <button key={f} type="button" className={frequency === f ? 'btn-primary' : 'btn-secondary'} style={{ flex: 1, justifyContent: 'center', padding: '8px 12px', fontSize: 13 }} onClick={() => setFrequency(f)}>
+                      {f === 'semanal' ? 'Semanal' : 'Mensual'}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div>
                 <label>Cantidad de cuotas</label>
                 <input className="input-field" inputMode="numeric" value={installmentsCount} onChange={(e) => setInstallmentsCount(e.target.value)} />
@@ -217,7 +229,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
               </div>
               {installmentsPreview && (
                 <div style={{ gridColumn: '1 / -1', color: '#888', fontSize: 12 }}>
-                  {installmentsPreview.count - 1} cuotas de {fmt(installmentsPreview.base)} y la última de {fmt(installmentsPreview.last)}, una por semana desde el {firstDueDate}.
+                  {installmentsPreview.count - 1} cuotas de {fmt(installmentsPreview.base)} y la última de {fmt(installmentsPreview.last)}, una por {frequency === 'semanal' ? 'semana' : 'mes'} desde el {firstDueDate.split('-').reverse().join('/')}.
                 </div>
               )}
             </div>

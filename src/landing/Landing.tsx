@@ -32,7 +32,7 @@ const WHY = [
   { n: '01', t: 'Marcas de confianza', p: 'Trabajamos con fabricantes reconocidos para que lleves herramientas que duran.' },
   { n: '02', t: 'Atención personalizada', p: 'Te asesoramos por WhatsApp o en persona para elegir lo que realmente necesitás.' },
   { n: '03', t: 'Reparto a domicilio', p: 'Nuestros repartidores recorren la zona para que no pierdas tiempo en traslados.' },
-  { n: '04', t: 'Facilidades de pago', p: 'Cuotas semanales y cuenta corriente para clientes, con seguimiento claro.' },
+  { n: '04', t: 'Facilidades de pago', p: 'Cuotas semanales o mensuales y cuenta corriente para clientes, con seguimiento claro.' },
 ];
 
 const MARQUEE = ['Dowen Pagio', 'Crossmaster', 'BTA', 'Biassoni', 'Distribuidora de herramientas', 'San Rafael · Mendoza'];
