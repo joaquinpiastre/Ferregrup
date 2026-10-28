@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
+import { pool } from './db/client.js';
 import { authRouter } from './routes/auth.js';
 import { streetOrdersRouter } from './routes/streetOrders.js';
 import { clientsRouter } from './routes/clients.js';
@@ -62,8 +65,23 @@ app.use(suppliersRouter);
 app.use(logsRouter);
 app.use(vanRouter);
 
-app.listen(config.port, () => {
-  console.log(`Ferregrup server escuchando en :${config.port}`);
+// schema.sql es idempotente (create ... if not exists): aplicarlo en cada arranque crea las tablas
+// nuevas en producción sin un paso manual. Resuelve igual desde src/ (tsx) y desde dist/ (compilado).
+// Si falla, solo se loguea: el resto de la API tiene que seguir levantando.
+async function applySchema(): Promise<void> {
+  try {
+    const schemaPath = fileURLToPath(new URL('../src/db/schema.sql', import.meta.url));
+    await pool.query(readFileSync(schemaPath, 'utf8'));
+    console.log('Esquema de base de datos al día.');
+  } catch (err) {
+    console.error('No se pudo aplicar el esquema de base de datos:', err);
+  }
+}
+
+applySchema().finally(() => {
+  app.listen(config.port, () => {
+    console.log(`Ferregrup server escuchando en :${config.port}`);
+  });
 });
 
 if (config.gt06Port && config.gt06Port !== config.port) {
