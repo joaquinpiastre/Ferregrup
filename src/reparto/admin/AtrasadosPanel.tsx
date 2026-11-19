@@ -19,10 +19,14 @@ const weeksLabel = (n: number) => (n === 1 ? 'de la semana anterior' : `hace ${n
 export default function AtrasadosPanel({ token }: Props) {
   const [report, setReport] = useState<OverdueReport | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => subscribeOverdue(token, setReport), [token]);
+  useEffect(
+    () => subscribeOverdue(token, (r) => { setReport(r); setError(''); }, (e) => setError(e instanceof Error ? e.message : 'No se pudo cargar.')),
+    [token]
+  );
 
-  if (!report) return <p style={{ color: '#666', fontSize: 14 }}>Cargando...</p>;
+  if (!report) return <p style={{ color: error ? '#f87171' : '#666', fontSize: 14 }}>{error || 'Cargando...'}</p>;
 
   return (
     <div>

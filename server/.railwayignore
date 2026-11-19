@@ -1,0 +1,5 @@
+# No subir al build de Railway secretos ni artefactos locales.
+.env
+.env.*
+!.env.example
+node_modules

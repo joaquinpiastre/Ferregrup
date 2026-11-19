@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes, AlertTriangle, Truck } from 'lucide-react';
+import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes, AlertTriangle, Truck, Sparkles, Bot } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { fetchStreetOrders, subscribeStreetOrders } from '../api';
@@ -24,6 +24,8 @@ import AtrasadosPanel from './AtrasadosPanel';
 import ObjetivosPanel from './ObjetivosPanel';
 import ProveedoresPanel from './ProveedoresPanel';
 import LogsPanel from './LogsPanel';
+import IAPanel from './IAPanel';
+import AsistentePanel from '../shared/AsistentePanel';
 import type { Session, StreetOrder } from '../types';
 
 interface Props {
@@ -36,9 +38,13 @@ type Section =
   | 'clientes' | 'catalogo' | 'stock' | 'camioneta'
   | 'equipo' | 'trackers'
   | 'estadisticas' | 'cobros' | 'atrasados' | 'cuentas' | 'ventas' | 'cotizaciones' | 'objetivos' | 'proveedores'
-  | 'logs';
+  | 'logs' | 'asistente' | 'ia';
 
 const sections: SidebarSection[] = [
+  {
+    label: 'Asistente',
+    links: [{ id: 'asistente', label: 'Asistente IA', icon: Sparkles }],
+  },
   {
     label: 'Operación',
     links: [
@@ -77,6 +83,7 @@ const sections: SidebarSection[] = [
       { id: 'equipo', label: 'Equipo', icon: UserCog },
       { id: 'trackers', label: 'Trackers', icon: Radio },
       { id: 'logs', label: 'Actividad', icon: ScrollText },
+      { id: 'ia', label: 'Inteligencia artificial', icon: Bot },
     ],
   },
 ];
@@ -147,6 +154,8 @@ export default function AdminShell({ session, onLogout }: Props) {
           {section === 'objetivos' && <ObjetivosPanel token={session.token} />}
           {section === 'proveedores' && <ProveedoresPanel token={session.token} />}
           {section === 'logs' && <LogsPanel token={session.token} />}
+          {section === 'asistente' && <AsistentePanel session={session} />}
+          {section === 'ia' && <IAPanel token={session.token} />}
         </div>
       </main>
     </div>

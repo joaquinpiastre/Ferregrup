@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, FileText, Trash2, Printer, Download } from 'lucide-react';
 import { createQuote, deleteQuote, fetchCatalog, subscribeQuotes } from '../api';
 import { downloadSaleDocPdf, printSaleDoc } from '../printSaleDoc';
@@ -35,7 +35,23 @@ export default function CotizacionesPanel({ token }: Props) {
     setShowForm(true);
   }
 
+  // Evita que un doble toque cargue lo mismo dos veces.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+
   async function submit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await doSubmit();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  async function doSubmit() {
     if (items.length === 0) { setError('Agregá al menos un producto.'); return; }
     try {
       await createQuote(token, { clientName: clientName.trim() || undefined, notes: notes.trim() || undefined, items });
@@ -97,7 +113,7 @@ export default function CotizacionesPanel({ token }: Props) {
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
             <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={submit}>Guardar cotización</button>
+            <button className="btn-primary" onClick={submit} disabled={submitting}>{submitting ? 'Guardando…' : 'Guardar cotización'}</button>
           </div>
         </div>
       )}

@@ -1,5 +1,12 @@
 import type {
   ActivityLogEntry,
+  AiConversation,
+  AiConversationSummary,
+  AiEvent,
+  AiLimitMode,
+  AiMe,
+  AiOverview,
+  AiSettings,
   CatalogProduct,
   ClientAccount,
   ClientStatement,
@@ -67,10 +74,20 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     },
   });
   if (!res.ok) {
+    if (res.status === 401 && token) expireSession();
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Error ${res.status}`);
   }
   return res.json() as Promise<T>;
+}
+
+let expiring = false;
+/** El token venció o el usuario fue desactivado: se cierra la sesión y se vuelve al login. */
+function expireSession(): void {
+  if (expiring) return;
+  expiring = true;
+  saveSession(null);
+  window.location.reload();
 }
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
@@ -180,6 +197,14 @@ export async function fetchCatalog(token: string): Promise<CatalogProduct[]> {
 
 export async function upsertCatalogProduct(token: string, product: CatalogProduct): Promise<void> {
   await request('/catalog', { method: 'POST', body: JSON.stringify(product) }, token);
+}
+
+export async function updateCatalogProduct(
+  token: string,
+  code: string,
+  patch: { description?: string; unitPrice?: number; costPrice?: number | null; ivaRate?: number }
+): Promise<void> {
+  await request(`/catalog/${encodeURIComponent(code)}`, { method: 'PATCH', body: JSON.stringify(patch) }, token);
 }
 
 export async function deleteCatalogProduct(token: string, code: string): Promise<void> {
@@ -514,8 +539,8 @@ export async function fetchOverdue(token: string): Promise<OverdueReport> {
   return request<OverdueReport>('/overdue', {}, token);
 }
 
-export function subscribeOverdue(token: string, onChange: (report: OverdueReport) => void): () => void {
-  return poll(() => fetchOverdue(token), onChange);
+export function subscribeOverdue(token: string, onChange: (report: OverdueReport) => void, onError?: (err: unknown) => void): () => void {
+  return poll(() => fetchOverdue(token), onChange, onError);
 }
 
 // ─── Proveedores y deudas ──────────────────────────────────────────────────────
@@ -567,4 +592,86 @@ export async function fetchLogs(token: string, staffId?: string): Promise<Activi
 
 export function subscribeLogs(token: string, staffId: string | undefined, onChange: (logs: ActivityLogEntry[]) => void): () => void {
   return poll(() => fetchLogs(token, staffId), onChange);
+}
+
+// ─── Asistente de IA ─────────────────────────────────────────────────────────────
+
+export async function fetchAiMe(token: string): Promise<AiMe> {
+  return request<AiMe>('/ai/me', {}, token);
+}
+
+export async function fetchAiConversations(token: string): Promise<AiConversationSummary[]> {
+  const data = await request<{ conversations: AiConversationSummary[] }>('/ai/conversations', {}, token);
+  return data.conversations;
+}
+
+export async function createAiConversation(token: string): Promise<string> {
+  const data = await request<{ id: string }>('/ai/conversations', { method: 'POST' }, token);
+  return data.id;
+}
+
+export async function fetchAiConversation(token: string, id: string): Promise<AiConversation> {
+  return request<AiConversation>(`/ai/conversations/${encodeURIComponent(id)}`, {}, token);
+}
+
+export async function deleteAiConversation(token: string, id: string): Promise<void> {
+  await request(`/ai/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' }, token);
+}
+
+/** La respuesta de la IA llega en streaming: una línea JSON por evento. */
+async function streamAi(token: string, path: string, body: unknown, onEvent: (e: AiEvent) => void): Promise<void> {
+  if (!API_URL) throw new Error('El servidor de reparto no está configurado (falta VITE_API_URL).');
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    if (res.status === 401) expireSession();
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `Error ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (line) onEvent(JSON.parse(line) as AiEvent);
+    }
+  }
+  if (buffer.trim()) onEvent(JSON.parse(buffer) as AiEvent);
+}
+
+export function sendAiMessage(token: string, conversationId: string, text: string, onEvent: (e: AiEvent) => void): Promise<void> {
+  return streamAi(token, `/ai/conversations/${encodeURIComponent(conversationId)}/messages`, { text }, onEvent);
+}
+
+export function confirmAiActions(token: string, conversationId: string, approve: boolean, onEvent: (e: AiEvent) => void): Promise<void> {
+  return streamAi(token, `/ai/conversations/${encodeURIComponent(conversationId)}/confirm`, { approve }, onEvent);
+}
+
+export async function fetchAiOverview(token: string): Promise<AiOverview> {
+  return request<AiOverview>('/ai/admin/overview', {}, token);
+}
+
+export async function saveAiSettings(token: string, patch: Partial<AiSettings>): Promise<void> {
+  await request('/ai/admin/settings', { method: 'PUT', body: JSON.stringify(patch) }, token);
+}
+
+export async function saveAiUserSettings(
+  token: string,
+  staffId: string,
+  body: { access: 'default' | 'off' | 'read' | 'write'; model: string | null; limitMode: AiLimitMode; monthlyLimitUsd?: number | null }
+): Promise<void> {
+  await request(`/ai/admin/users/${encodeURIComponent(staffId)}`, { method: 'PUT', body: JSON.stringify(body) }, token);
+}
+
+export async function testAiConnection(token: string): Promise<{ ok: boolean; error?: string; models?: { id: string; available: boolean }[] }> {
+  return request('/ai/admin/test', { method: 'POST' }, token);
 }

@@ -5,14 +5,18 @@ import type { CatalogProduct } from '../types';
 
 interface Props {
   token: string;
+  /** Solo para mirar (vendedor): sin los botones de ingreso/corrección. */
+  readOnly?: boolean;
 }
+
+const fmtPrice = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n);
 
 type Filter = 'todos' | 'sin' | 'con';
 type EditMode = 'add' | 'set';
 
 const ROW_LIMIT = 200;
 
-export default function StockPanel({ token }: Props) {
+export default function StockPanel({ token, readOnly = false }: Props) {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -110,8 +114,9 @@ export default function StockPanel({ token }: Props) {
               <tr>
                 <th>Código</th>
                 <th>Descripción</th>
+                <th style={{ textAlign: 'right' }}>Precio</th>
                 <th style={{ textAlign: 'right' }}>Stock</th>
-                <th style={{ textAlign: 'right' }}>Ajustar</th>
+                {!readOnly && <th style={{ textAlign: 'right' }}>Ajustar</th>}
               </tr>
             </thead>
             <tbody>
@@ -121,10 +126,11 @@ export default function StockPanel({ token }: Props) {
                   <tr key={p.code}>
                     <td style={{ fontFamily: 'monospace', color: '#888' }}>{p.code}</td>
                     <td style={{ color: '#fff' }}>{p.description}</td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap', color: '#ddd' }}>{fmtPrice(p.unitPrice)}</td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {p.stock <= 0 ? <span className="badge badge-red">{p.stock < 0 ? `Sin stock (${p.stock})` : 'Sin stock'}</span> : <strong style={{ color: '#4ade80' }}>{p.stock}</strong>}
                     </td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {!readOnly && <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {isEditing ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <input
@@ -153,7 +159,7 @@ export default function StockPanel({ token }: Props) {
                           </button>
                         </span>
                       )}
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}

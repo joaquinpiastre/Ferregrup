@@ -1,3 +1,4 @@
+import { arToday } from './dateFormat';
 import type { SaleInstallment } from '../types';
 
 interface Props {
@@ -15,7 +16,7 @@ function fmtDueDate(d: string) {
 function installmentStatus(inst: SaleInstallment): { label: string; color: string } {
   if (inst.paid >= inst.amount) return { label: 'Pagada', color: '#4ade80' };
   if (inst.paid > 0) return { label: 'Parcial', color: '#fbbf24' };
-  if (inst.dueDate && inst.dueDate < new Date().toISOString().slice(0, 10)) return { label: 'Vencida', color: '#f87171' };
+  if (inst.dueDate && inst.dueDate < arToday()) return { label: 'Vencida', color: '#f87171' };
   return { label: 'Pendiente', color: '#888' };
 }
 

@@ -28,7 +28,8 @@ export interface StreetOrder {
   createdAt: number;
 }
 
-export type StaffRole = 'admin' | 'repartidor';
+/** admin: todo · repartidor: vende, cobra y reparte · vendedor: vende y cobra (sin reparto). */
+export type StaffRole = 'admin' | 'repartidor' | 'vendedor';
 
 export interface Staff {
   id: string;
@@ -376,4 +377,117 @@ export interface ActivityLogEntry {
   action: string;
   summary: string;
   createdAt: number;
+}
+
+// ─── Asistente de IA ────────────────────────────────────────────────────────────
+
+export type AiAccess = 'off' | 'read' | 'write';
+
+export interface AiMe {
+  enabled: boolean;
+  globallyEnabled: boolean;
+  access: AiAccess;
+  apiConfigured: boolean;
+  requireConfirmation: boolean;
+  model: { id: string; name: string } | null;
+  spentUsd: number;
+  limitUsd: number | null;
+}
+
+export interface AiConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
+  hasPending: boolean;
+}
+
+export type AiToolStatus = 'ok' | 'error' | 'cancelado' | 'pendiente' | 'running';
+
+export type AiChatItem =
+  | { kind: 'user'; id: string; text: string; at?: number }
+  | { kind: 'assistant'; id: string; text: string; at?: number }
+  | { kind: 'tool'; id: string; name: string; label: string; status: AiToolStatus; summary?: string }
+  | { kind: 'error'; id: string; text: string };
+
+export interface AiConfirmAction {
+  id: string;
+  title: string;
+  details: string[];
+  warning?: string;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  items: AiChatItem[];
+  pending: AiConfirmAction[] | null;
+  contextTokens: number;
+  running: boolean;
+  roleChanged: boolean;
+}
+
+export type AiEvent =
+  | { type: 'iteration' }
+  | { type: 'retry' }
+  | { type: 'text'; text: string }
+  | { type: 'tool_start'; id: string; name: string; label: string }
+  | { type: 'tool_end'; id: string; status: 'ok' | 'error' | 'cancelado'; summary: string }
+  | { type: 'confirm'; actions: AiConfirmAction[] }
+  | { type: 'usage'; costUsd: number; spentUsd: number; limitUsd: number | null }
+  | { type: 'error'; message: string }
+  | { type: 'done' };
+
+export type AiEffort = 'auto' | 'low' | 'medium' | 'high';
+export type AiLimitMode = 'default' | 'none' | 'custom';
+
+export interface AiSettings {
+  enabled: boolean;
+  defaultModel: string;
+  effort: AiEffort;
+  requireConfirmation: boolean;
+  globalMonthlyLimitUsd: number | null;
+  defaultUserLimitUsd: number | null;
+}
+
+export interface AiModelInfo {
+  id: string;
+  name: string;
+  bestFor: string;
+  description: string;
+  goodAt: string[];
+  notIdealFor: string;
+  speed: string;
+  inputPerMTok: number;
+  outputPerMTok: number;
+  recommended?: boolean;
+  note?: string;
+  typicalQuestionUsd: number;
+}
+
+export interface AiUserRow {
+  id: string;
+  name: string;
+  role: StaffRole;
+  active: boolean;
+  access: AiAccess | 'default';
+  effectiveAccess: AiAccess;
+  defaultAccess: AiAccess;
+  model: string | null;
+  effectiveModel: string;
+  limitMode: AiLimitMode;
+  customLimitUsd: number | null;
+  limitUsd: number | null;
+  spentUsd: number;
+  spentPrevUsd: number;
+  callsThisMonth: number;
+  lastUsedAt: number | null;
+}
+
+export interface AiOverview {
+  settings: AiSettings;
+  apiConfigured: boolean;
+  models: AiModelInfo[];
+  users: AiUserRow[];
+  totals: { spentUsd: number; spentPrevUsd: number };
+  byModel: { model: string; name: string; costUsd: number; calls: number; inputTokens: number; outputTokens: number }[];
 }

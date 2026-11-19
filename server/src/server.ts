@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import cors from 'cors';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response, type Router } from 'express';
 import { config } from './config.js';
 import { pool } from './db/client.js';
 import { authRouter } from './routes/auth.js';
@@ -24,6 +24,7 @@ import { overdueRouter } from './routes/overdue.js';
 import { suppliersRouter } from './routes/suppliers.js';
 import { logsRouter } from './routes/logs.js';
 import { vanRouter } from './routes/van.js';
+import { aiRouter } from './routes/ai.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
 // Las rutas son async sin try/catch; en Express 4 un error ahí es una promesa
@@ -37,33 +38,79 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception (el proceso sigue corriendo):', err);
 });
 
+/**
+ * Express 4 no pasa al manejador de errores las promesas rechazadas de las rutas async: el
+ * pedido quedaba colgado sin respuesta. Esto envuelve cada handler para que el error llegue.
+ */
+function catchAsyncErrors(router: Router): Router {
+  type Handler = (req: Request, res: Response, next: NextFunction) => unknown;
+  for (const layer of router.stack as { route?: { stack: { handle: Handler }[] } }[]) {
+    for (const routeLayer of layer.route?.stack ?? []) {
+      const handle = routeLayer.handle;
+      if (handle.length > 3) continue;
+      routeLayer.handle = (req, res, next) => {
+        try {
+          const result = handle(req, res, next);
+          if (result instanceof Promise) result.catch(next);
+        } catch (err) {
+          next(err);
+        }
+      };
+    }
+  }
+  return router;
+}
+
 const app = express();
+// Railway pone un proxy adelante: así req.ip es la IP real del cliente.
+app.set('trust proxy', 1);
 app.use(cors());
 // El límite por defecto (100kb) queda corto para confirmar catálogos grandes
 // importados desde Excel (miles de filas).
 app.use(express.json({ limit: '15mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
-app.use(authRouter);
-app.use(streetOrdersRouter);
-app.use(clientsRouter);
-app.use(catalogRouter);
-app.use(catalogImportRouter);
-app.use(routeStopsRouter);
-app.use(shiftsRouter);
-app.use(paymentsRouter);
-app.use(teamRouter);
-app.use(gpsRouter);
-app.use(trackersRouter);
-app.use(listsRouter);
-app.use(salesRouter);
-app.use(quotesRouter);
-app.use(statsRouter);
-app.use(goalsRouter);
-app.use(overdueRouter);
-app.use(suppliersRouter);
-app.use(logsRouter);
-app.use(vanRouter);
+for (const router of [
+  authRouter,
+  streetOrdersRouter,
+  clientsRouter,
+  catalogRouter,
+  catalogImportRouter,
+  routeStopsRouter,
+  shiftsRouter,
+  paymentsRouter,
+  teamRouter,
+  gpsRouter,
+  trackersRouter,
+  listsRouter,
+  salesRouter,
+  quotesRouter,
+  statsRouter,
+  goalsRouter,
+  overdueRouter,
+  suppliersRouter,
+  logsRouter,
+  vanRouter,
+  aiRouter,
+]) {
+  app.use(catchAsyncErrors(router));
+}
+
+// Último recurso: cualquier error responde (en JSON) en vez de dejar el pedido colgado.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Express reconoce el manejador de errores por sus 4 parámetros
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const status = (err as { status?: number }).status;
+  if (status && status >= 400 && status < 500) {
+    if (!res.headersSent) res.status(status).json({ error: 'Pedido inválido.' });
+    return;
+  }
+  console.error(`Error en ${req.method} ${req.path}:`, err);
+  if (res.headersSent) {
+    res.end();
+    return;
+  }
+  res.status(500).json({ error: 'Error interno del servidor. Probá de nuevo en un momento.' });
+});
 
 // schema.sql es idempotente (create ... if not exists): aplicarlo en cada arranque crea las tablas
 // nuevas en producción sin un paso manual. Resuelve igual desde src/ (tsx) y desde dist/ (compilado).

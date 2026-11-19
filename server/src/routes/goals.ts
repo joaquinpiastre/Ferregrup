@@ -26,9 +26,14 @@ function weeksForCourier(installments: InstallmentRow[], today: string) {
     let carry = 0;
     let collected = 0;
     for (const inst of installments) {
-      if (inst.dueDate >= ws && inst.dueDate < we) due += inst.amount;
-      if (inst.dueDate < ws) carry += Math.max(0, inst.amount - paidUntil(inst, ws));
-      for (const p of inst.payments) if (p.day >= ws && p.day < we) collected += p.amount;
+      // Lo que quedaba por cobrar de la cuota al empezar la semana (si se pagó por adelantado,
+      // no vuelve a sumar al objetivo de la semana en que vence).
+      const remainingAtStart = Math.max(0, inst.amount - paidUntil(inst, ws));
+      if (inst.dueDate >= ws && inst.dueDate < we) due += remainingAtStart;
+      if (inst.dueDate < ws) carry += remainingAtStart;
+      // Lo cobrado cuenta para esta semana solo si es de una cuota que forma su objetivo; un
+      // adelanto de una cuota futura baja el objetivo de la semana en que vence.
+      if (inst.dueDate < we) for (const p of inst.payments) if (p.day >= ws && p.day < we) collected += p.amount;
     }
     const target = due + carry;
     weeks.push({
@@ -46,7 +51,8 @@ function weeksForCourier(installments: InstallmentRow[], today: string) {
 }
 
 goalsRouter.get('/goals', requireAuth, async (req, res) => {
-  const courierId = req.user?.role === 'repartidor' ? req.user.sub : undefined;
+  // Repartidores y vendedores ven solo su objetivo.
+  const courierId = req.user!.role !== 'admin' ? req.user!.sub : undefined;
   const installments = await loadInstallments(courierId);
   const today = arToday();
 
@@ -59,7 +65,7 @@ goalsRouter.get('/goals', requireAuth, async (req, res) => {
 
   // El admin ve a todos los vendedores activos, aunque todavía no tengan cuotas (objetivo en 0).
   if (!courierId) {
-    const { rows: staff } = await pool.query(`select id, name from staff where role = 'repartidor' and active = true`);
+    const { rows: staff } = await pool.query(`select id, name from staff where role in ('repartidor', 'vendedor') and active = true`);
     for (const s of staff) if (!byCourier.has(s.id)) byCourier.set(s.id, { name: s.name, list: [] });
   }
 

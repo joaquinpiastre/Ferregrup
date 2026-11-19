@@ -1,3 +1,4 @@
+import { arToday } from '../shared/dateFormat';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowUp, ArrowDown, Trash2, Plus, MapPin } from 'lucide-react';
 import { assignRouteStops, deleteRouteStop, fetchClients, fetchRouteStops, fetchStaffList, reorderRouteStop, subscribeRouteStops } from '../api';
@@ -22,7 +23,7 @@ const STATUS_BADGE: Record<RouteStopStatus, string> = {
 };
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return arToday();
 }
 
 export default function RutasPanel({ token }: Props) {

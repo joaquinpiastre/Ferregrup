@@ -31,7 +31,12 @@ export default function CuentasPanel({ token, canOpenStatement = true, canDelete
 
   useEffect(() => {
     if (!selected) return;
-    fetchClientStatement(token, selected.id).then(setStatement).catch(() => setStatement(null));
+    // Si se elige otro cliente antes de que llegue la respuesta, la vieja se descarta.
+    let cancelled = false;
+    fetchClientStatement(token, selected.id)
+      .then((s) => { if (!cancelled) setStatement(s); })
+      .catch(() => { if (!cancelled) setStatement(null); });
+    return () => { cancelled = true; };
   }, [selected, token]);
 
   async function removePayment(paymentId: string, amount: number) {

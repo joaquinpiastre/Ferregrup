@@ -9,9 +9,9 @@ import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
 export const salesRouter = Router();
 
 salesRouter.get('/sales', requireAuth, async (req, res) => {
-  const isRepartidor = req.user?.role === 'repartidor';
+  const ownOnly = req.user!.role !== 'admin';
   const { rows } = await pool.query(
-    isRepartidor
+    ownOnly
       ? `select s.id, s.client_id as "clientId", s.client_name as "clientName", s.courier_id as "courierId",
            s.courier_name as "courierName", s.amount, s.description, s.installments_total as "installmentsTotal",
            s.created_at_ms as "createdAt", ${itemsJsonAgg}, ${installmentsJsonAgg}
@@ -22,7 +22,7 @@ salesRouter.get('/sales', requireAuth, async (req, res) => {
            s.created_at_ms as "createdAt", ${itemsJsonAgg}, ${installmentsJsonAgg}
          from sales s left join sale_items i on i.sale_id = s.id
          group by s.id order by s.created_at_ms desc limit 300`,
-    isRepartidor ? [req.user!.sub] : []
+    ownOnly ? [req.user!.sub] : []
   );
   res.json({
     sales: rows.map((r) => ({
@@ -66,16 +66,16 @@ function splitCents(totalCents: number, count: number): number[] {
 }
 
 
-salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor'), async (req, res) => {
+salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor', 'vendedor'), async (req, res) => {
   const parsed = saleSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
     return;
   }
   const s = parsed.data;
-  // Un repartidor solo puede cargar ventas a su propio nombre, sin importar lo que mande el body.
-  const courierId = req.user!.role === 'repartidor' ? req.user!.sub : s.courierId;
-  const courierName = req.user!.role === 'repartidor' ? req.user!.name : s.courierName;
+  // Repartidores y vendedores solo cargan ventas a su propio nombre, sin importar lo que mande el body.
+  const courierId = req.user!.role !== 'admin' ? req.user!.sub : s.courierId;
+  const courierName = req.user!.role !== 'admin' ? req.user!.name : s.courierName;
 
   const id = `sale-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const createdAt = Date.now();

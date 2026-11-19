@@ -12,12 +12,13 @@ create table if not exists staff (
 -- migration: the 'mostrador' role was renamed to 'admin'
 alter table staff drop constraint if exists staff_role_check;
 update staff set role = 'admin' where role = 'mostrador';
-alter table staff add constraint staff_role_check check (role in ('superadmin', 'admin', 'repartidor'));
+alter table staff add constraint staff_role_check check (role in ('superadmin', 'admin', 'repartidor', 'vendedor'));
 
--- migration: se consolidan los roles a solo 2 — 'admin' (con todo lo del ex superadmin) y 'repartidor'
+-- migration: se consolidan los roles — 'admin' (con todo lo del ex superadmin), 'repartidor'
+-- (vende, cobra y reparte) y 'vendedor' (vende y cobra, sin reparto)
 alter table staff drop constraint if exists staff_role_check;
 update staff set role = 'admin' where role = 'superadmin';
-alter table staff add constraint staff_role_check check (role in ('admin', 'repartidor'));
+alter table staff add constraint staff_role_check check (role in ('admin', 'repartidor', 'vendedor'));
 
 create table if not exists street_orders (
   id text primary key,
@@ -355,3 +356,82 @@ create table if not exists van_movements (
 );
 
 create index if not exists idx_van_movements_created on van_movements (created_at_ms desc);
+
+-- ─── Asistente de IA ────────────────────────────────────────────────────────────
+-- Cada usuario tiene sus propias conversaciones; el admin elige el modelo, quién puede
+-- usarlo (sin acceso / solo consultas / consultas y cambios) y cuánto puede gastar por mes.
+-- La IA solo toca datos del negocio a través de las mismas rutas de la API (nunca el código).
+
+create table if not exists ai_settings (
+  id integer primary key default 1 check (id = 1),
+  enabled boolean not null default true,
+  default_model text not null default 'claude-opus-5-5',
+  effort text not null default 'auto' check (effort in ('auto', 'low', 'medium', 'high')),
+  require_confirmation boolean not null default true,
+  global_monthly_limit_usd numeric(12,4),
+  default_user_limit_usd numeric(12,4) default 5,
+  updated_at timestamptz not null default now()
+);
+
+insert into ai_settings (id) values (1) on conflict (id) do nothing;
+
+create table if not exists ai_user_settings (
+  staff_id text primary key references staff(id),
+  -- null = el acceso por defecto de su rol (admin: cambios, repartidor: solo consultas)
+  access text check (access in ('off', 'read', 'write')),
+  -- null = el modelo por defecto
+  model text,
+  -- 'default' = el límite general por usuario, 'none' = sin límite, 'custom' = monthly_limit_usd
+  limit_mode text not null default 'default' check (limit_mode in ('default', 'none', 'custom')),
+  monthly_limit_usd numeric(12,4),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists ai_conversations (
+  id text primary key,
+  staff_id text not null references staff(id),
+  staff_role text not null,
+  title text not null default 'Nueva conversación',
+  -- Se congela al crear la conversación: cambiarlo a mitad de charla invalida el
+  -- razonamiento guardado de los turnos anteriores y el caché de prompts.
+  system_prompt text not null,
+  -- Cambios propuestos por la IA esperando que el usuario los confirme.
+  pending json,
+  -- Tamaño del contexto en la última respuesta (para sugerir empezar un chat nuevo).
+  context_tokens integer not null default 0,
+  created_at_ms bigint not null,
+  updated_at_ms bigint not null
+);
+
+create index if not exists idx_ai_conversations_staff on ai_conversations (staff_id, updated_at_ms desc);
+
+-- Historial tal cual se le manda a la API (solo se agregan filas, nunca se editan).
+-- Es `json` y no `jsonb` a propósito: jsonb reordena las claves de los objetos y el historial
+-- tiene que volver idéntico (el caché de prompts y el razonamiento guardado dependen de eso).
+create table if not exists ai_messages (
+  id bigserial primary key,
+  conversation_id text not null references ai_conversations(id) on delete cascade,
+  role text not null check (role in ('user', 'assistant', 'system')),
+  content json not null,
+  meta json,
+  created_at_ms bigint not null
+);
+
+create index if not exists idx_ai_messages_conversation on ai_messages (conversation_id, id);
+
+-- Consumo por llamada a la API (sin FK a la conversación: el gasto queda aunque se borre el chat).
+create table if not exists ai_usage (
+  id bigserial primary key,
+  staff_id text not null references staff(id),
+  conversation_id text,
+  model text not null,
+  input_tokens integer not null default 0,
+  output_tokens integer not null default 0,
+  cache_read_tokens integer not null default 0,
+  cache_write_tokens integer not null default 0,
+  cost_usd numeric(12,6) not null,
+  created_at_ms bigint not null
+);
+
+create index if not exists idx_ai_usage_staff_created on ai_usage (staff_id, created_at_ms desc);
+create index if not exists idx_ai_usage_created on ai_usage (created_at_ms desc);

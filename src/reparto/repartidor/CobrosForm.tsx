@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Printer, Download } from 'lucide-react';
 import { createPayment, fetchClientBalance, fetchClientStatement, fetchStaffList, subscribeClients } from '../api';
 import { downloadPaymentsReceiptPdf, printPaymentsReceipt, type ReceiptLine } from '../printReceipt';
@@ -130,7 +130,23 @@ export default function CobrosForm({ session }: Props) {
     setSelected(allSelected ? {} : Object.fromEntries(pendingInstallments.map((i) => [i.id, String(remainingOf(i))])));
   }
 
+  // Evita que un doble toque cargue lo mismo dos veces.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+
   async function submit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await doSubmit();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  async function doSubmit() {
     setError('');
     if (!selectedClient) {
       setError('Elegí un cliente.');
@@ -231,7 +247,7 @@ export default function CobrosForm({ session }: Props) {
         <div className="card">
           <label>Cobro a nombre de</label>
           <select className="input-field" value={courierId} onChange={(e) => setCourierId(e.target.value)}>
-            {team.filter((m) => m.role === 'repartidor').map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {team.filter((m) => m.role === 'repartidor' || m.role === 'vendedor').map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             <option value={session.staff.id}>{session.staff.name} (yo)</option>
           </select>
         </div>
@@ -356,7 +372,7 @@ export default function CobrosForm({ session }: Props) {
 
       {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
 
-      <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={submit}>
+      <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }} onClick={submit} disabled={submitting}>
         {selectedList.length > 1 ? `Registrar ${selectedList.length} cobros` : 'Registrar cobro'}
       </button>
     </div>

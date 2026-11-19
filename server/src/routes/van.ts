@@ -47,7 +47,9 @@ vanRouter.post('/van/move', requireAuth, requireRole('admin'), async (req, res) 
   try {
     await client.query('begin');
     const { rows: prod } = await client.query(
-      `select description, stock from catalog_products where code = $1 and active = true for update`,
+      // Para cargar, el producto tiene que estar activo; devolver o dar de baja tiene que poder
+      // hacerse aunque una importación del catálogo lo haya desactivado.
+      `select description, stock from catalog_products where code = $1 ${m.kind === 'carga' ? 'and active = true' : ''} for update`,
       [m.code]
     );
     if (prod.length === 0) {

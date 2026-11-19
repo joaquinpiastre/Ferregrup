@@ -1,23 +1,21 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
+import { arToday, mondayOf as mondayOfDate } from '../collections.js';
 
 export const statsRouter = Router();
 
 const TRAILING_DAYS = 28;
 
-function mondayOf(d: Date): number {
-  const date = new Date(d);
-  date.setHours(0, 0, 0, 0);
-  const day = date.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  date.setDate(date.getDate() + diff);
-  return date.getTime();
+// El servidor corre en UTC: la semana (desde el lunes) y el mes arrancan a las 00:00 de Argentina.
+const AR_OFFSET = '-03:00';
+
+function weekStartMs(): number {
+  return Date.parse(`${mondayOfDate(arToday())}T00:00:00${AR_OFFSET}`);
 }
 
-function firstOfMonth(d: Date): number {
-  const date = new Date(d.getFullYear(), d.getMonth(), 1);
-  return date.getTime();
+function monthStartMs(): number {
+  return Date.parse(`${arToday().slice(0, 7)}-01T00:00:00${AR_OFFSET}`);
 }
 
 async function sumSince(table: 'sales' | 'payments', sinceMs: number): Promise<number> {
@@ -39,8 +37,8 @@ statsRouter.get('/stats/dashboard', requireAuth, requireRole('admin'), async (_r
   const avgDailyCobros = trailingCobros / TRAILING_DAYS;
   const avgDailyVentas = trailingVentas / TRAILING_DAYS;
 
-  const weekStart = mondayOf(new Date(now));
-  const monthStart = firstOfMonth(new Date(now));
+  const weekStart = weekStartMs();
+  const monthStart = monthStartMs();
   const [weekCobros, weekVentas, monthCobros, monthVentas] = await Promise.all([
     sumSince('payments', weekStart),
     sumSince('sales', weekStart),

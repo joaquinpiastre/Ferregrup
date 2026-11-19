@@ -341,3 +341,76 @@ h1, h2, h3 {
     z-index: 90;
   }
 }
+
+/* ─── Asistente de IA ───────────────────────────────────────────────────── */
+
+.ai-chat {
+  display: flex;
+  gap: 14px;
+  height: calc(100vh - 120px);
+  min-height: 460px;
+}
+
+.ai-chat-list {
+  width: 230px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  background: #141414;
+  border: 1px solid #2d2d2d;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.ai-chat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ai-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-chat.compact {
+  height: calc(100vh - 110px);
+}
+
+@media (max-width: 860px) {
+  .ai-chat,
+  .ai-chat.compact {
+    height: calc(100dvh - 190px);
+    min-height: 400px;
+  }
+  .ai-chat-list {
+    display: none;
+  }
+  .ai-chat-messages {
+    padding: 12px;
+  }
+}
+
+.ai-model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.ai-only-compact { display: none; }
+.ai-chat.compact .ai-only-compact { display: flex; }
+.ai-chat.compact .ai-only-wide,
+.ai-chat.compact .ai-chat-list { display: none; }
+
+@media (max-width: 860px) {
+  .ai-chat .ai-only-compact { display: flex; }
+  .ai-chat .ai-only-wide { display: none; }
+}

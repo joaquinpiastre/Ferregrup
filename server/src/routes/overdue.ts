@@ -9,7 +9,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // Atrasada = cuota que venció en una semana anterior a la actual y todavía no está cobrada
 // completa. Una cuota que vence esta semana no cuenta hasta que la semana termine.
 overdueRouter.get('/overdue', requireAuth, async (req, res) => {
-  const courierId = req.user?.role === 'repartidor' ? req.user.sub : undefined;
+  const courierId = req.user!.role !== 'admin' ? req.user!.sub : undefined;
   const installments = await loadInstallments(courierId);
   const thisWeek = mondayOf(arToday());
 

@@ -79,6 +79,10 @@ streetOrdersRouter.post('/street-orders', requireAuth, async (req, res) => {
     return;
   }
   const o = parsed.data;
+  if (req.user!.role !== 'admin') {
+    o.courierId = req.user!.sub;
+    o.courierName = req.user!.name;
+  }
   const client = await pool.connect();
   try {
     await client.query('begin');
@@ -125,13 +129,20 @@ streetOrdersRouter.patch('/street-orders/:id/status', requireAuth, async (req, r
     return;
   }
   const { status, note } = parsed.data;
-  if (note) {
-    await pool.query(
-      `update street_orders set status = $2, notes = coalesce(notes || ' | ' || $3, $3) where id = $1`,
-      [req.params.id, status, note]
-    );
-  } else {
-    await pool.query(`update street_orders set status = $2 where id = $1`, [req.params.id, status]);
+  // El admin puede cambiar cualquier pedido; un repartidor solo los que cargó él.
+  const own = req.user!.role !== 'admin';
+  const upd = note
+    ? await pool.query(
+        `update street_orders set status = $2, notes = coalesce(notes || ' | ' || $3, $3) where id = $1 ${own ? 'and courier_id = $4' : ''}`,
+        own ? [req.params.id, status, note, req.user!.sub] : [req.params.id, status, note]
+      )
+    : await pool.query(
+        `update street_orders set status = $2 where id = $1 ${own ? 'and courier_id = $3' : ''}`,
+        own ? [req.params.id, status, req.user!.sub] : [req.params.id, status]
+      );
+  if (upd.rowCount === 0) {
+    res.status(404).json({ error: 'Pedido no encontrado.' });
+    return;
   }
   await logActivity(req.user!, 'street_order.status', `Cambió un pedido en calle a estado "${status}"`);
   res.json({ ok: true });
@@ -143,10 +154,15 @@ streetOrdersRouter.patch('/street-orders/:id/notes', requireAuth, async (req, re
     res.status(400).json({ error: 'Payload inválido.' });
     return;
   }
-  await pool.query(`update street_orders set notes = $2 where id = $1`, [
-    req.params.id,
-    parsed.data.notes || null,
-  ]);
+  const own = req.user!.role !== 'admin';
+  const upd = await pool.query(
+    `update street_orders set notes = $2 where id = $1 ${own ? 'and courier_id = $3' : ''}`,
+    own ? [req.params.id, parsed.data.notes || null, req.user!.sub] : [req.params.id, parsed.data.notes || null]
+  );
+  if (upd.rowCount === 0) {
+    res.status(404).json({ error: 'Pedido no encontrado.' });
+    return;
+  }
   res.json({ ok: true });
 });
 

@@ -5,12 +5,13 @@ import { pool } from '../db/client.js';
 
 export const shiftsRouter = Router();
 
-function todayDate(): string {
-  return new Date().toISOString().slice(0, 10);
+/** Fecha (AAAA-MM-DD) en hora de Argentina de un instante: el servidor corre en UTC. */
+function arDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
 }
 
 shiftsRouter.get('/shifts/active', requireAuth, async (req, res) => {
-  const courierId = req.user!.role === 'repartidor' ? req.user!.sub : (req.query.courierId as string);
+  const courierId = req.user!.role !== 'admin' ? req.user!.sub : (req.query.courierId as string);
   if (!courierId) {
     res.status(400).json({ error: 'Falta courierId.' });
     return;
@@ -37,21 +38,37 @@ shiftsRouter.post('/shifts/start', requireAuth, async (req, res) => {
     res.status(400).json({ error: 'Datos inválidos.' });
     return;
   }
-  const { courierId, courierName } = parsed.data;
-  const existing = await pool.query(
-    `select id from shifts where courier_id = $1 and ended_at_ms is null limit 1`,
-    [courierId]
-  );
-  if (existing.rows.length > 0) {
-    res.json({ id: existing.rows[0].id });
-    return;
+  // Un repartidor solo puede iniciar su propio turno.
+  const ownOnly = req.user!.role !== 'admin';
+  const courierId = ownOnly ? req.user!.sub : parsed.data.courierId;
+  const courierName = ownOnly ? req.user!.name : parsed.data.courierName;
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    // Serializa los "iniciar turno" del mismo repartidor (un doble toque no abre dos turnos).
+    await client.query(`select pg_advisory_xact_lock(hashtext($1))`, [`shift:${courierId}`]);
+    const existing = await client.query(
+      `select id from shifts where courier_id = $1 and ended_at_ms is null limit 1`,
+      [courierId]
+    );
+    if (existing.rows.length > 0) {
+      await client.query('commit');
+      res.json({ id: existing.rows[0].id });
+      return;
+    }
+    const id = `sh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    await client.query(
+      `insert into shifts (id, courier_id, courier_name, started_at_ms) values ($1,$2,$3,$4)`,
+      [id, courierId, courierName, Date.now()]
+    );
+    await client.query('commit');
+    res.json({ id });
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
   }
-  const id = `sh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  await pool.query(
-    `insert into shifts (id, courier_id, courier_name, started_at_ms) values ($1,$2,$3,$4)`,
-    [id, courierId, courierName, Date.now()]
-  );
-  res.json({ id });
 });
 
 shiftsRouter.post('/shifts/:id/end', requireAuth, async (req, res) => {
@@ -61,10 +78,15 @@ shiftsRouter.post('/shifts/:id/end', requireAuth, async (req, res) => {
     return;
   }
   const shift = rows[0];
+  if (req.user!.role !== 'admin' && shift.courier_id !== req.user!.sub) {
+    res.status(403).json({ error: 'No autorizado.' });
+    return;
+  }
+  // Las paradas del día en que empezó el turno (en hora de Argentina).
   const stats = await pool.query(
     `select count(*) filter (where status = 'entregado') as completed, count(*) as total
      from route_stops where courier_id = $1 and scheduled_date = $2`,
-    [shift.courier_id, todayDate()]
+    [shift.courier_id, arDate(Number(shift.started_at_ms))]
   );
   const endedAt = Date.now();
   const minutes = Math.round((endedAt - Number(shift.started_at_ms)) / 60000);
@@ -94,7 +116,7 @@ shiftsRouter.get('/shifts/:id/stops', requireAuth, requireRole('admin'), async (
     res.status(404).json({ error: 'Turno no encontrado.' });
     return;
   }
-  const date = new Date(Number(rows[0].startedAt)).toISOString().slice(0, 10);
+  const date = arDate(Number(rows[0].startedAt));
   const stops = await pool.query(
     `select client_name as "clientName", client_address as "clientAddress", status,
        admin_notes as "adminNotes", courier_notes as "courierNotes",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Search, Trash2, Upload, CheckCircle2 } from 'lucide-react';
-import { confirmCatalogImport, deleteCatalogProduct, fetchCatalog, previewCatalogImport, upsertCatalogProduct } from '../api';
+import { adjustStock, confirmCatalogImport, deleteCatalogProduct, fetchCatalog, previewCatalogImport, updateCatalogProduct, upsertCatalogProduct } from '../api';
 import type { CatalogImportPreview } from '../api';
 import type { CatalogProduct } from '../types';
 
@@ -24,6 +24,9 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  // Producto que se está editando (null = alta nueva).
+  const [editing, setEditing] = useState<CatalogProduct | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,24 +67,42 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
       setError('Ingresá un costo válido.');
       return;
     }
+    if (saving) return;
+    setSaving(true);
     try {
-      await upsertCatalogProduct(token, {
-        code: form.code.trim(),
-        description: form.description.trim(),
-        unitPrice: price,
-        stock,
-        costPrice,
-        ivaRate,
-      });
+      if (editing) {
+        // Edición parcial: no reenvía el stock que había en pantalla (pisaría ventas o cargas
+        // hechas mientras tanto); el stock solo cambia si el usuario lo modificó.
+        await updateCatalogProduct(token, editing.code, {
+          description: form.description.trim(),
+          unitPrice: price,
+          costPrice: costPrice ?? null,
+          ivaRate,
+        });
+        if (stock !== editing.stock) await adjustStock(token, editing.code, { mode: 'set', quantity: stock });
+      } else {
+        await upsertCatalogProduct(token, {
+          code: form.code.trim(),
+          description: form.description.trim(),
+          unitPrice: price,
+          stock,
+          costPrice,
+          ivaRate,
+        });
+      }
       setShowForm(false);
+      setEditing(null);
       setForm(emptyForm());
       refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar.');
+    } finally {
+      setSaving(false);
     }
   }
 
   function openEdit(p: CatalogProduct) {
+    setEditing(p);
     setForm({
       code: p.code,
       description: p.description,
@@ -146,7 +167,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
             <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
               <Upload size={14} /> {importing ? 'Leyendo...' : 'Importar Excel'}
             </button>
-            <button className="btn-primary" onClick={() => { setShowForm(true); setForm(emptyForm()); setError(''); }}><Plus size={14} /> Nuevo</button>
+            <button className="btn-primary" onClick={() => { setShowForm(true); setEditing(null); setForm(emptyForm()); setError(''); }}><Plus size={14} /> Nuevo</button>
           </>
         )}
       </div>
@@ -207,7 +228,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 10 }}>
             <div>
               <label>Código</label>
-              <input className="input-field" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+              <input className="input-field" value={form.code} disabled={!!editing} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </div>
             <div>
               <label>Descripción</label>
@@ -235,7 +256,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
             <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={save}>Guardar</button>
+            <button className="btn-primary" onClick={save} disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</button>
           </div>
         </div>
       )}

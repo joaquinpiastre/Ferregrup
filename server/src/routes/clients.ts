@@ -17,7 +17,7 @@ clientsRouter.get('/clients', requireAuth, async (_req, res) => {
 
 // ─── Cuentas: saldo de todos los clientes (ventas cargadas - cobros) ───────────
 
-clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin', 'repartidor'), async (_req, res) => {
+clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin', 'repartidor', 'vendedor'), async (_req, res) => {
   const { rows } = await pool.query(`
     select c.id, c.name, c.address, c.phone, c.type,
       coalesce(s.total, 0) as charged,
@@ -61,7 +61,7 @@ clientsRouter.get('/clients/:id/balance', requireAuth, async (req, res) => {
 // Lo puede ver admin y repartidor (los vendedores necesitan ver el detalle de la
 // cuenta corriente del cliente, incluidas las cuotas, para poder cobrarle).
 
-clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin', 'repartidor'), async (req, res) => {
+clientsRouter.get('/clients/:id/statement', requireAuth, requireRole('admin', 'repartidor', 'vendedor'), async (req, res) => {
   const [{ rows: sales }, { rows: payments }] = await Promise.all([
     pool.query(
       `select s.id, s.amount, s.description, s.courier_name as "courierName", s.installments_total as "installmentsTotal",

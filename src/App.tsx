@@ -3,6 +3,7 @@ import LoginScreen from './reparto/LoginScreen';
 import Landing from './landing/Landing';
 import AdminShell from './reparto/admin/AdminShell';
 import RepartidorShell from './reparto/repartidor/RepartidorShell';
+import VendedorShell from './reparto/vendedor/VendedorShell';
 import { apiEnabled, loadSession, saveSession } from './reparto/api';
 import type { Session } from './reparto/types';
 import './index.css';
@@ -41,6 +42,10 @@ export default function App() {
 
   if (session.staff.role === 'admin') {
     return <AdminShell session={session} onLogout={handleLogout} />;
+  }
+
+  if (session.staff.role === 'vendedor') {
+    return <VendedorShell session={session} onLogout={handleLogout} />;
   }
 
   return <RepartidorShell session={session} onLogout={handleLogout} />;

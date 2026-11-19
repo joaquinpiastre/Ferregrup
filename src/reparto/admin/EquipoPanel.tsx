@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Truck, Store, Edit2 } from 'lucide-react';
+import { Plus, Truck, Store, Edit2, ShoppingBag } from 'lucide-react';
 import { createTeamMember, fetchTeam, updateTeamMember } from '../api';
 import type { StaffRole, TeamMember } from '../types';
 
@@ -11,16 +11,19 @@ interface Props {
 const ROLE_LABEL: Record<StaffRole, string> = {
   admin: 'Administrador',
   repartidor: 'Repartidor',
+  vendedor: 'Vendedor',
 };
 
 const ROLE_ICON: Record<StaffRole, typeof Truck> = {
   admin: Store,
   repartidor: Truck,
+  vendedor: ShoppingBag,
 };
 
 const ROLE_COLOR: Record<StaffRole, string> = {
   admin: '#60a5fa',
   repartidor: '#FE4806',
+  vendedor: '#4ade80',
 };
 
 const emptyForm = () => ({ id: '', name: '', pin: '', role: 'repartidor' as StaffRole });
@@ -32,7 +35,7 @@ export default function EquipoPanel({ token, currentUserId }: Props) {
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState('');
 
-  const availableRoles: StaffRole[] = ['repartidor', 'admin'];
+  const availableRoles: StaffRole[] = ['repartidor', 'vendedor', 'admin'];
 
   function refresh() {
     fetchTeam(token).then(setTeam).catch(() => {});

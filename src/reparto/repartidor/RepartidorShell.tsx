@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { arToday } from '../shared/dateFormat';
+import { Home as HomeIcon, MapPin, Send, UserCheck, Package, Wallet, Banknote, ShoppingCart, AlertTriangle, Sparkles } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
 import { endShift, fetchActiveShift, fetchRouteStops, fetchStreetOrders, postGpsUpdate, startShift, subscribeRouteStops, subscribeStreetOrders } from '../api';
@@ -12,6 +13,7 @@ import CobrosForm from './CobrosForm';
 import AtrasadosPanel from '../admin/AtrasadosPanel';
 import CuentasPanel from '../admin/CuentasPanel';
 import VentasPanel from '../admin/VentasPanel';
+import AsistentePanel from '../shared/AsistentePanel';
 import type { RouteStop, Session, Shift, StreetOrder } from '../types';
 
 interface Props {
@@ -19,10 +21,11 @@ interface Props {
   onLogout: () => void;
 }
 
-type Section = 'home' | 'ruta' | 'pedido' | 'ventas' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros' | 'atrasados';
+type Section = 'home' | 'asistente' | 'ruta' | 'pedido' | 'ventas' | 'clientes' | 'catalogo' | 'cuentas' | 'cobros' | 'atrasados';
 
 const TITLES: Record<Section, string> = {
   home: 'Inicio',
+  asistente: 'Asistente IA',
   ruta: 'Mi ruta',
   pedido: 'Pedido en calle',
   ventas: 'Ventas',
@@ -38,6 +41,7 @@ const sections: SidebarSection[] = [
     label: 'Repartidor',
     links: [
       { id: 'home', label: 'Inicio', icon: HomeIcon },
+      { id: 'asistente', label: 'Asistente IA', icon: Sparkles },
       { id: 'ruta', label: 'Mi ruta', icon: MapPin },
       { id: 'pedido', label: 'Pedido en calle', icon: Send },
       { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
@@ -51,7 +55,7 @@ const sections: SidebarSection[] = [
 ];
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return arToday();
 }
 
 export default function RepartidorShell({ session, onLogout }: Props) {
@@ -130,6 +134,7 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section === 'cuentas' && <CuentasPanel token={session.token} />}
           {section === 'cobros' && <CobrosForm session={session} />}
           {section === 'atrasados' && <AtrasadosPanel token={session.token} />}
+          {section === 'asistente' && <AsistentePanel session={session} compact />}
         </div>
       </main>
     </div>

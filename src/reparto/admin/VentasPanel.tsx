@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { arToday } from '../shared/dateFormat';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, ShoppingCart, Trash2, Printer, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { createSale, deleteSale, fetchCatalog, fetchStaffList, subscribeClients, subscribeSales } from '../api';
 import { downloadSaleDocPdf, printSaleDoc } from '../printSaleDoc';
@@ -20,7 +21,7 @@ function fmtDate(ts: number) {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return arToday();
 }
 
 export default function VentasPanel({ token, courier, canDelete = true }: Props) {
@@ -47,7 +48,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
   useEffect(() => { if (!courier) fetchStaffList(token).then(setStaff).catch(() => {}); }, [token, courier]);
   useEffect(() => { fetchCatalog(token).then(setCatalog).catch(() => {}); }, [token]);
 
-  const couriers = useMemo(() => staff.filter((s) => s.role === 'repartidor'), [staff]);
+  const couriers = useMemo(() => staff.filter((s) => s.role === 'repartidor' || s.role === 'vendedor'), [staff]);
   const courierNames = useMemo(() => Array.from(new Set(sales.map((s) => s.courierName))), [sales]);
 
   const suggestions = useMemo(() => {
@@ -84,7 +85,23 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
     setShowForm(true);
   }
 
+  // Evita que un doble toque cargue lo mismo dos veces.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+
   async function submit() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      await doSubmit();
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  async function doSubmit() {
     const assignedCourier = courier ?? couriers.find((c) => c.id === courierId);
     if (!selectedClient) { setError('Elegí un cliente.'); return; }
     if (!assignedCourier) { setError('Elegí un repartidor.'); return; }
@@ -238,7 +255,7 @@ export default function VentasPanel({ token, courier, canDelete = true }: Props)
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
             <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
-            <button className="btn-primary" onClick={submit}>Cargar venta</button>
+            <button className="btn-primary" onClick={submit} disabled={submitting}>{submitting ? 'Cargando…' : 'Cargar venta'}</button>
           </div>
         </div>
       )}

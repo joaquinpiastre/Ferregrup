@@ -4,12 +4,13 @@ Sistema de gestión de reparto para ferretería (React + TypeScript + Vite + bac
 
 ## Roles y login
 
-Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend). Hay solo dos roles:
+Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend). Hay tres roles:
 
-- **`admin`** — el panel del administrador/mostrador, con todo el negocio: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, **Cuentas de clientes** (saldo y detalle de movimientos de cada cliente), **Cobros** (con filtro semanal y recibo imprimible/PDF), **Ventas** (cargar ventas a cuenta de un cliente, asignadas a un repartidor), **Atrasados** (clientes con cuotas vencidas sin cobrar), **Objetivos** (cuotas a cobrar por semana de cada repartidor, con historial), **Proveedores** (deudas con proveedores, fechas, factura y pago por ECHEQ), Equipo (alta/baja de usuarios) y **Actividad** (log de auditoría de qué hizo cada usuario).
+- **`admin`** — el panel del administrador/mostrador, con todo el negocio: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, **Cuentas de clientes** (saldo y detalle de movimientos de cada cliente), **Cobros** (con filtro semanal y recibo imprimible/PDF), **Ventas** (cargar ventas a cuenta de un cliente, asignadas a un repartidor), **Atrasados** (clientes con cuotas vencidas sin cobrar), **Objetivos** (cuotas a cobrar por semana de cada repartidor, con historial), **Proveedores** (deudas con proveedores, fechas, factura y pago por ECHEQ), Equipo (alta/baja de usuarios), **Actividad** (log de auditoría de qué hizo cada usuario), **Asistente IA** e **Inteligencia artificial** (configuración y gastos de la IA; ver más abajo).
 - **`repartidor`** — panel del repartidor: inicio con turno (iniciar/terminar) y sus barras de objetivo semanal/mensual, mi ruta del día (navegar por Google Maps, marcar visitado/problema), pedido en la calle, clientes, catálogo, cobros (ve el saldo del cliente antes de cobrar y puede imprimir/descargar el recibo).
+- **`vendedor`** — panel del vendedor: vende y cobra pero no reparte (no tiene ruta, turno con GPS ni pedido en calle). Ve inicio con su objetivo semanal y accesos rápidos, asistente IA, ventas y cobros a su nombre, **cotizaciones** (las suyas), cuentas corrientes, atrasados de sus ventas, catálogo y **stock con precios** (solo para mirar; no ve el costo ni puede ajustar). A las ventas y cobros que carga el admin se les puede asignar un repartidor o un vendedor, y los vendedores aparecen en Objetivos como cualquier repartidor.
 
-El seed inicial (`npm run seed` dentro de `server/`) crea dos usuarios de ejemplo — `admin` y `repartidor` — ambos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción**. El login es por usuario + PIN (sin listas desplegables); un `admin` puede crear, editar o desactivar cuentas de cualquiera de los dos roles desde **Equipo** — esto se valida también del lado del servidor, no solo ocultando el botón.
+El seed inicial (`npm run seed` dentro de `server/`) crea dos usuarios de ejemplo — `admin` y `repartidor` — ambos con PIN `1234`. **Cambiá esos PIN antes de usarlo en producción**. El login es por usuario + PIN (sin listas desplegables); un `admin` puede crear, editar o desactivar cuentas de cualquiera de los tres roles desde **Equipo** — esto se valida también del lado del servidor, no solo ocultando el botón.
 
 ### Cuentas, ventas y objetivos
 
@@ -24,6 +25,17 @@ El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (
 ### Importación de catálogo desde Excel
 
 Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin puede importar; repartidor solo puede buscar en el catálogo ya cargado.
+
+### Asistente de IA
+
+Cada usuario (admin y repartidor) tiene su **Asistente IA** en el menú: un chat propio (nadie más ve sus conversaciones) que consulta los datos reales del negocio y, si tiene permiso, también los modifica. Usa los modelos Claude de Anthropic a través de la API (`server/src/ai/`).
+
+- **Qué puede hacer**: consultar catálogo, stock, clientes, cuentas corrientes, ventas, cobros, atrasados y objetivos; el admin además listas de reparto, proveedores, camioneta, equipo y actividad. Con permiso de cambios: crear/editar/dar de baja productos, ajustar stock, cambiar precios (uno o masivo por porcentaje, monto o precio fijo, con redondeo), clientes, listas de reparto, proveedores y sus deudas, movimientos de la camioneta, ventas y cobros.
+- **Qué no puede hacer**: no toca el código ni la configuración del sistema, los usuarios, los PIN ni la configuración de la IA, y no borra ventas ni cobros. Las consultas son de solo lectura y **todos los cambios pasan por las mismas rutas de la API que usa la pantalla**, con un token interno del propio usuario: heredan sus permisos de rol, las validaciones y transacciones, y quedan en **Actividad** marcados con `[IA]`.
+- **Confirmación**: antes de aplicar un cambio, el chat muestra un resumen ("TAL-001: stock 0 → 10", "Aumentar 10% a 37 productos", con ejemplos) y el usuario lo confirma o cancela con un botón. Se puede desactivar en la configuración (no recomendado).
+- **Administración → Inteligencia artificial** (solo admin): activar/desactivar la IA, elegir el modelo (Opus 5.5 recomendado, Sonnet 5.5, Haiku 5.5 o Fable 5.2, cada uno con para qué sirve, velocidad y costo aproximado por pregunta), cuánto razona, el límite mensual de gasto por usuario y del equipo, y por cada usuario: acceso (sin acceso / solo consultas / consultas y cambios), un modelo distinto y su propio límite. Muestra cuánto gastó cada uno este mes y el anterior, y el consumo por modelo. Por defecto los admin tienen "consultas y cambios" y los repartidores "solo consultas", con US$ 5 por mes cada uno.
+- **Configuración**: la API key va en la variable de entorno `ANTHROPIC_API_KEY` del servicio `ferregrup-api` en Railway (nunca llega al navegador). Sin ella el resto del sistema funciona igual y el asistente avisa que falta configurarlo. El botón "Probar conexión" verifica la clave y qué modelos tiene disponibles la cuenta.
+- **Costos**: se registra el costo de cada llamada en `ai_usage` (aunque se borre el chat) y el asistente se corta al llegar al límite. El historial se guarda tal cual se manda a la API (columna `json`, no `jsonb`, para no reordenar claves) y solo se le agregan mensajes: así el caché de prompts abarata las conversaciones largas.
 
 ### Qué se dejó afuera a propósito
 
@@ -50,7 +62,7 @@ Cualquiera de estos se puede sumar después si hace falta.
   railway up server --path-as-root --service ferregrup-api
   ```
   Para desarrollo local: copiar `server/.env.example` a `server/.env` con una base Postgres propia (o un proxy TCP temporal a la de Railway), correr `npm run migrate && npm run seed` y luego `npm run dev`.
-- **Frontend** — Vercel, proyecto `ferregrup`: **https://ferregrup.vercel.app** — este es el link para usar desde el celular, tablet o cualquier PC sin depender de tu compu. Conectado al repo de GitHub: **cada push a `main` lo redespliega solo**. La variable `VITE_API_URL` está cargada en Vercel (Project Settings → Environment Variables) apuntando al backend de Railway.
+- **Frontend** — Vercel, proyecto `ferregrup`: **https://distribuidoraelmana.com.ar** — este es el link para usar desde el celular, tablet o cualquier PC sin depender de tu compu. `www.distribuidoraelmana.com.ar` redirige al dominio principal y `https://ferregrup.vercel.app` sigue funcionando. El dominio está registrado en NIC.ar y delegado a los DNS de Vercel (`ns1.vercel-dns.com` / `ns2.vercel-dns.com`), que maneja los registros y el certificado SSL. Conectado al repo de GitHub: **cada push a `main` lo redespliega solo**. La variable `VITE_API_URL` está cargada en Vercel (Project Settings → Environment Variables) apuntando al backend de Railway.
   - Para forzar un deploy manual sin pasar por git: `vercel --prod` desde la raíz del proyecto.
   - Nota: el frontend viejo en Railway (`ferregrup-web`, `https://ferregrup-web-production.up.railway.app`) quedó desactualizado y **ya no funciona** (tiene el login viejo, que dependía de un endpoint que ahora requiere sesión). No se borró automáticamente por las dudas, pero conviene eliminarlo (`railway service remove ferregrup-web` o desde el dashboard) para no confundir a nadie que entre ahí por error.
 
@@ -127,5 +139,4 @@ export default defineConfig([
   },
 ])
 ```
-#   E l - M a n a  
- 
+#   E l - M a n a 

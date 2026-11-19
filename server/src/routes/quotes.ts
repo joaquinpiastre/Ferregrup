@@ -7,12 +7,16 @@ import { itemsJsonAgg } from '../db/sqlFragments.js';
 
 export const quotesRouter = Router();
 
-quotesRouter.get('/quotes', requireAuth, requireRole('admin'), async (_req, res) => {
+// El admin ve todas las cotizaciones; el vendedor, solo las que armó él.
+quotesRouter.get('/quotes', requireAuth, requireRole('admin', 'vendedor'), async (req, res) => {
+  const ownOnly = req.user!.role !== 'admin';
   const { rows } = await pool.query(
     `select q.id, q.client_name as "clientName", q.staff_name as "staffName", q.total, q.notes,
        q.created_at_ms as "createdAt", ${itemsJsonAgg}
      from quotes q left join quote_items i on i.quote_id = q.id
-     group by q.id order by q.created_at_ms desc limit 300`
+     ${ownOnly ? 'where q.staff_id = $1' : ''}
+     group by q.id order by q.created_at_ms desc limit 300`,
+    ownOnly ? [req.user!.sub] : []
   );
   res.json({ quotes: rows.map((r) => ({ ...r, total: Number(r.total), createdAt: Number(r.createdAt) })) });
 });
@@ -30,7 +34,7 @@ const quoteSchema = z.object({
   items: z.array(itemSchema).min(1),
 });
 
-quotesRouter.post('/quotes', requireAuth, requireRole('admin'), async (req, res) => {
+quotesRouter.post('/quotes', requireAuth, requireRole('admin', 'vendedor'), async (req, res) => {
   const parsed = quoteSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'Datos inválidos.' });
@@ -69,8 +73,12 @@ quotesRouter.post('/quotes', requireAuth, requireRole('admin'), async (req, res)
   res.json({ id, total, createdAt });
 });
 
-quotesRouter.delete('/quotes/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const del = await pool.query(`delete from quotes where id = $1`, [req.params.id]);
+quotesRouter.delete('/quotes/:id', requireAuth, requireRole('admin', 'vendedor'), async (req, res) => {
+  const ownOnly = req.user!.role !== 'admin';
+  const del = await pool.query(
+    `delete from quotes where id = $1 ${ownOnly ? 'and staff_id = $2' : ''}`,
+    ownOnly ? [req.params.id, req.user!.sub] : [req.params.id]
+  );
   if (del.rowCount === 0) {
     res.status(404).json({ error: 'Cotización no encontrada.' });
     return;

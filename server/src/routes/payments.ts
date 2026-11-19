@@ -7,9 +7,9 @@ import { logActivity } from '../activityLog.js';
 export const paymentsRouter = Router();
 
 paymentsRouter.get('/payments', requireAuth, async (req, res) => {
-  const isRepartidor = req.user?.role === 'repartidor';
+  const ownOnly = req.user!.role !== 'admin';
   const { rows } = await pool.query(
-    isRepartidor
+    ownOnly
       ? `select id, client_id as "clientId", client_name as "clientName", courier_id as "courierId",
            courier_name as "courierName", amount, method, check_number as "checkNumber", bank, notes,
            installment_id as "installmentId", created_at_ms as "createdAt"
@@ -18,7 +18,7 @@ paymentsRouter.get('/payments', requireAuth, async (req, res) => {
            courier_name as "courierName", amount, method, check_number as "checkNumber", bank, notes,
            installment_id as "installmentId", created_at_ms as "createdAt"
          from payments order by created_at_ms desc limit 300`,
-    isRepartidor ? [req.user!.sub] : []
+    ownOnly ? [req.user!.sub] : []
   );
   res.json({ payments: rows.map((r) => ({ ...r, amount: Number(r.amount), createdAt: Number(r.createdAt) })) });
 });
@@ -43,8 +43,8 @@ paymentsRouter.post('/payments', requireAuth, async (req, res) => {
     return;
   }
   const p = parsed.data;
-  // Un repartidor solo carga cobros a su propio nombre; el admin puede cargarlos a nombre de cualquier integrante del equipo.
-  if (req.user!.role === 'repartidor') {
+  // Repartidores y vendedores solo cargan cobros a su propio nombre; el admin puede cargarlos a nombre de cualquier integrante del equipo.
+  if (req.user!.role !== 'admin') {
     p.courierId = req.user!.sub;
     p.courierName = req.user!.name;
   } else {

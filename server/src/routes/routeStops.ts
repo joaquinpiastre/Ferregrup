@@ -14,8 +14,8 @@ routeStopsRouter.get('/route-stops', requireAuth, async (req, res) => {
     res.status(400).json({ error: 'Falta el parámetro date (YYYY-MM-DD).' });
     return;
   }
-  const isRepartidor = req.user?.role === 'repartidor';
-  const courierId = isRepartidor ? req.user!.sub : (req.query.courierId as string | undefined);
+  const ownOnly = req.user!.role !== 'admin';
+  const courierId = ownOnly ? req.user!.sub : (req.query.courierId as string | undefined);
   const { rows } = await pool.query(
     courierId
       ? `select id, courier_id as "courierId", courier_name as "courierName", client_id as "clientId",
@@ -95,7 +95,7 @@ routeStopsRouter.patch('/route-stops/:id/status', requireAuth, async (req, res) 
     res.status(404).json({ error: 'Parada no encontrada.' });
     return;
   }
-  if (req.user?.role === 'repartidor' && rows[0].courierId !== req.user.sub) {
+  if (req.user!.role !== 'admin' && rows[0].courierId !== req.user!.sub) {
     res.status(403).json({ error: 'No autorizado.' });
     return;
   }
@@ -148,10 +148,20 @@ routeStopsRouter.patch('/route-stops/:id/reorder', requireAuth, requireRole('adm
     return;
   }
   const n = neighbor.rows[0];
-  await pool.query('begin');
-  await pool.query(`update route_stops set order_num = $2 where id = $1`, [current.id, n.orderNum]);
-  await pool.query(`update route_stops set order_num = $2 where id = $1`, [n.id, current.orderNum]);
-  await pool.query('commit');
+  // begin/commit tienen que ir por la misma conexión: con pool.query cada sentencia puede
+  // caer en una conexión distinta y dejar una transacción abierta en el pool.
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query(`update route_stops set order_num = $2 where id = $1`, [current.id, n.orderNum]);
+    await client.query(`update route_stops set order_num = $2 where id = $1`, [n.id, current.orderNum]);
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw e;
+  } finally {
+    client.release();
+  }
   res.json({ ok: true });
 });
 

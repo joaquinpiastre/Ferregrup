@@ -2,15 +2,17 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
+import { arToday } from '../collections.js';
 
 export const listsRouter = Router();
 
 listsRouter.get('/lists', requireAuth, requireRole('admin'), async (_req, res) => {
   const { rows } = await pool.query(
     `select l.id, l.name, l.weekdays, l.courier_id as "courierId", l.courier_name as "courierName",
-       count(lc.client_id)::int as "clientCount"
+       count(c.id)::int as "clientCount"
      from delivery_lists l
      left join delivery_list_clients lc on lc.list_id = l.id
+     left join clients c on c.id = lc.client_id and c.active
      group by l.id order by l.name`
   );
   res.json({ lists: rows });
@@ -83,7 +85,7 @@ listsRouter.get('/lists/:id/clients', requireAuth, requireRole('admin'), async (
     `select c.id, c.name, c.address, lc.order_num as "orderNum"
      from delivery_list_clients lc
      join clients c on c.id = lc.client_id
-     where lc.list_id = $1 order by lc.order_num`,
+     where lc.list_id = $1 and c.active order by lc.order_num`,
     [req.params.id]
   );
   res.json({ clients: rows });
@@ -124,14 +126,14 @@ listsRouter.post('/lists/:id/apply', requireAuth, requireRole('admin'), async (r
   }
   const clients = await pool.query(
     `select c.id, c.name, c.address from delivery_list_clients lc
-     join clients c on c.id = lc.client_id where lc.list_id = $1 order by lc.order_num`,
+     join clients c on c.id = lc.client_id where lc.list_id = $1 and c.active order by lc.order_num`,
     [req.params.id]
   );
   if (clients.rows.length === 0) {
     res.status(400).json({ error: 'La lista no tiene clientes.' });
     return;
   }
-  const today = new Date().toISOString().slice(0, 10);
+  const today = arToday();
   const client = await pool.connect();
   try {
     await client.query('begin');
