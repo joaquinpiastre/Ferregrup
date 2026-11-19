@@ -38,18 +38,32 @@ const TITLES: Record<Section, string> = {
 
 const sections: SidebarSection[] = [
   {
-    label: 'Repartidor',
     links: [
       { id: 'home', label: 'Inicio', icon: HomeIcon },
       { id: 'asistente', label: 'Asistente IA', icon: Sparkles },
+    ],
+  },
+  {
+    label: 'Reparto',
+    links: [
       { id: 'ruta', label: 'Mi ruta', icon: MapPin },
       { id: 'pedido', label: 'Pedido en calle', icon: Send },
+    ],
+  },
+  {
+    label: 'Ventas y cobros',
+    links: [
       { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
+      { id: 'cobros', label: 'Cobros', icon: Wallet },
+      { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
+      { id: 'atrasados', label: 'Atrasados', icon: AlertTriangle },
+    ],
+  },
+  {
+    label: 'Consultas',
+    links: [
       { id: 'clientes', label: 'Clientes', icon: UserCheck },
       { id: 'catalogo', label: 'Catálogo', icon: Package },
-      { id: 'cuentas', label: 'Cuentas corrientes', icon: Banknote },
-      { id: 'cobros', label: 'Cobros', icon: Wallet },
-      { id: 'atrasados', label: 'Atrasados', icon: AlertTriangle },
     ],
   },
 ];

@@ -42,7 +42,6 @@ type Section =
 
 const sections: SidebarSection[] = [
   {
-    label: 'Asistente',
     links: [{ id: 'asistente', label: 'Asistente IA', icon: Sparkles }],
   },
   {

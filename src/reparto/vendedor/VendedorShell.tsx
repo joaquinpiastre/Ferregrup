@@ -38,7 +38,6 @@ const TITLES: Record<Section, string> = {
 
 const sections: SidebarSection[] = [
   {
-    label: 'Vendedor',
     links: [
       { id: 'home', label: 'Inicio', icon: HomeIcon },
       { id: 'asistente', label: 'Asistente IA', icon: Sparkles },

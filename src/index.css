@@ -414,3 +414,58 @@ h1, h2, h3 {
   .ai-chat .ai-only-compact { display: flex; }
   .ai-chat .ai-only-wide { display: none; }
 }
+
+/* ─── Menú lateral compacto ──────────────────────────────────────────────── */
+
+.nav-link {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  color: #8a8a8a;
+  transition: background 0.12s, color 0.12s;
+}
+.nav-link svg { color: #555; flex-shrink: 0; transition: color 0.12s; }
+.nav-link:hover { background: #1a1a1a; color: #ddd; }
+.nav-link:hover svg { color: #999; }
+.nav-link.active { background: #FE4806; color: #000; font-weight: 700; }
+.nav-link.active svg { color: #000; }
+
+.nav-group {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #6b6b6b;
+  text-align: left;
+}
+.nav-group:hover { color: #bbb; background: #141414; }
+.nav-group.current { color: #777; cursor: default; }
+.nav-group.current:hover { background: transparent; }
+.nav-group-chevron { transition: transform 0.15s; flex-shrink: 0; }
+.nav-group-count {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #666;
+  background: #1a1a1a;
+  border-radius: 999px;
+  padding: 0 7px;
+}

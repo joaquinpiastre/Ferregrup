@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Menu, X, LogOut } from 'lucide-react';
+import { ChevronRight, LogOut, Menu, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface SidebarLink {
@@ -9,7 +9,8 @@ export interface SidebarLink {
 }
 
 export interface SidebarSection {
-  label: string;
+  /** Sin título: los links se muestran siempre, arriba de los grupos plegables. */
+  label?: string;
   links: SidebarLink[];
 }
 
@@ -35,11 +36,31 @@ export default function AppSidebar({
   footer = 'v1.1.0 · El Maná Distribuidora © 2026',
 }: Props) {
   const [open, setOpen] = useState(false);
+  const activeGroup = sections.findIndex((s) => s.links.some((l) => l.id === activeId));
+  // Grupos plegables: siempre está abierto el de la pantalla actual, más (como mucho) uno
+  // que el usuario abra a mano. Así el menú nunca se vuelve una lista larga.
+  const [expanded, setExpanded] = useState<number | null>(null);
 
-  function navigate(id: string) {
+  function navigate(id: string, groupIndex: number) {
     onNavigate(id);
+    setExpanded(groupIndex);
     setOpen(false);
   }
+
+  function toggle(groupIndex: number) {
+    if (groupIndex === activeGroup) return;
+    setExpanded((prev) => (prev === groupIndex ? null : groupIndex));
+  }
+
+  const renderLink = ({ id, label, icon: Icon }: SidebarLink, groupIndex: number) => {
+    const active = activeId === id;
+    return (
+      <button key={id} className={`nav-link${active ? ' active' : ''}`} onClick={() => navigate(id, groupIndex)}>
+        <Icon size={15} />
+        {label}
+      </button>
+    );
+  };
 
   return (
     <>
@@ -57,61 +78,52 @@ export default function AppSidebar({
       }}>
         <button onClick={() => setOpen(false)} className="sidebar-close" aria-label="Cerrar menú"><X size={18} /></button>
         {/* Logo */}
-        <div style={{ padding: '20px 16px 18px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
-          <img src="/mana-logo.png" alt="El Maná Distribuidora" style={{ display: 'block', width: '100%', maxWidth: 170, height: 'auto' }} />
-          <div style={{ fontSize: 9, color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 10 }}>{tagline}</div>
+        <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
+          <img src="/mana-logo.png" alt="El Maná Distribuidora" style={{ display: 'block', width: '100%', maxWidth: 128, height: 'auto' }} />
+          <div style={{ fontSize: 9, color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 7 }}>{tagline}</div>
         </div>
 
-        {/* Nav sections */}
-        <nav style={{ padding: '12px 10px', flex: 1 }}>
-          {sections.map(section => (
-            <div key={section.label} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 10, color: '#3d3d3d', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', padding: '6px 8px 4px' }}>
-                {section.label}
+        <nav style={{ padding: '8px 8px', flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {sections.map((section, gi) => {
+            if (!section.label) {
+              return (
+                <div key={`top-${gi}`} style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingBottom: 6, marginBottom: 2, borderBottom: '1px solid #161616' }}>
+                  {section.links.map((l) => renderLink(l, gi))}
+                </div>
+              );
+            }
+            const isActiveGroup = gi === activeGroup;
+            const isOpen = isActiveGroup || gi === expanded;
+            return (
+              <div key={section.label}>
+                <button
+                  className={`nav-group${isActiveGroup ? ' current' : ''}`}
+                  onClick={() => toggle(gi)}
+                  aria-expanded={isOpen}
+                >
+                  <ChevronRight size={12} className="nav-group-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }} />
+                  <span style={{ flex: 1 }}>{section.label}</span>
+                  {!isOpen && <span className="nav-group-count">{section.links.length}</span>}
+                </button>
+                {isOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '1px 0 6px' }}>
+                    {section.links.map((l) => renderLink(l, gi))}
+                  </div>
+                )}
               </div>
-              {section.links.map(({ id, label, icon: Icon }) => {
-                const active = activeId === id;
-                return (
-                  <button
-                    key={id}
-                    onClick={() => navigate(id)}
-                    style={{
-                      width: '100%',
-                      border: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 9,
-                      padding: '8px 10px',
-                      borderRadius: 7,
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      fontWeight: active ? 700 : 500,
-                      textAlign: 'left',
-                      marginBottom: 1,
-                      transition: 'all 0.12s',
-                      background: active ? '#FE4806' : 'transparent',
-                      color: active ? '#000' : '#777',
-                    }}
-                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#1a1a1a'; (e.currentTarget as HTMLButtonElement).style.color = active ? '#000' : '#ccc'; }}
-                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = active ? '#000' : '#777'; }}
-                  >
-                    <Icon size={15} color={active ? '#000' : '#555'} />
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Footer */}
-        <div style={{ padding: '12px', borderTop: '1px solid #1a1a1a', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: '#666' }}>{userLabel}</span>
+        <div style={{ padding: '10px 12px', borderTop: '1px solid #1a1a1a', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: '#777', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userLabel}</span>
             <button
               onClick={onLogout}
               aria-label="Cerrar sesión"
-              style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', display: 'flex', padding: 4 }}
+              title="Cerrar sesión"
+              style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', display: 'flex', padding: 4 }}
             >
               <LogOut size={14} />
             </button>
