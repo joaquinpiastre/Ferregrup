@@ -24,6 +24,8 @@ import { suppliersRouter } from './routes/suppliers.js';
 import { logsRouter } from './routes/logs.js';
 import { vanRouter } from './routes/van.js';
 import { aiRouter } from './routes/ai.js';
+import { filesRouter } from './routes/files.js';
+import { supplierListsRouter } from './routes/supplierLists.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
 // Las rutas son async sin try/catch; en Express 4 un error ahí es una promesa
@@ -64,8 +66,7 @@ const app = express();
 // Railway pone un proxy adelante: así req.ip es la IP real del cliente.
 app.set('trust proxy', 1);
 app.use(cors());
-// El límite por defecto (100kb) queda corto para confirmar catálogos grandes
-// importados desde Excel (miles de filas).
+// El límite por defecto (100kb) queda corto para algunos pedidos grandes (cargas masivas).
 app.use(express.json({ limit: '15mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
@@ -74,6 +75,8 @@ for (const router of [
   streetOrdersRouter,
   clientsRouter,
   catalogRouter,
+  supplierListsRouter,
+  filesRouter,
   routeStopsRouter,
   shiftsRouter,
   paymentsRouter,

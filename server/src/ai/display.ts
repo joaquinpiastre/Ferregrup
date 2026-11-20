@@ -2,7 +2,7 @@ import type { ConversationRow, MessageRow } from './agent.js';
 import { toolLabel } from './tools.js';
 
 export type ChatItem =
-  | { kind: 'user'; id: string; text: string; at: number }
+  | { kind: 'user'; id: string; text: string; at: number; attachments?: { id: string; name: string }[] }
   | { kind: 'assistant'; id: string; text: string; at: number }
   | { kind: 'tool'; id: string; name: string; label: string; status: 'ok' | 'error' | 'cancelado' | 'pendiente'; summary?: string };
 
@@ -32,7 +32,10 @@ export function toChatItems(rows: MessageRow[], conv: ConversationRow): ChatItem
           texts.push(b.text);
         }
       });
-      if (texts.length) items.push({ kind: 'user', id: `u${row.id}`, text: texts.join('\n\n'), at });
+      const attachments = row.meta?.attachments;
+      if (texts.length || attachments?.length) {
+        items.push({ kind: 'user', id: `u${row.id}`, text: texts.join('\n\n'), at, ...(attachments?.length ? { attachments } : {}) });
+      }
       continue;
     }
 

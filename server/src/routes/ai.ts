@@ -18,6 +18,7 @@ import {
   type AgentEvent,
 } from '../ai/agent.js';
 import { toChatItems } from '../ai/display.js';
+import { uploadedFileNames } from './files.js';
 
 export const aiRouter = Router();
 
@@ -152,7 +153,13 @@ async function streamRun(req: Request, res: Response, run: (emit: (e: AgentEvent
   });
 }
 
-const messageSchema = z.object({ text: z.string().trim().min(1).max(8000) });
+const messageSchema = z
+  .object({
+    text: z.string().trim().max(8000).default(''),
+    // Ids de archivos subidos antes con POST /files (por ahora, listas de precios).
+    attachments: z.array(z.string().min(1).max(80)).max(3).default([]),
+  })
+  .refine((m) => m.text.length > 0 || m.attachments.length > 0);
 
 aiRouter.post('/ai/conversations/:id/messages', async (req, res) => {
   const parsed = messageSchema.safeParse(req.body);
@@ -160,9 +167,14 @@ aiRouter.post('/ai/conversations/:id/messages', async (req, res) => {
     res.status(400).json({ error: 'Escribí un mensaje (máximo 8000 caracteres).' });
     return;
   }
+  const attachments = await uploadedFileNames(parsed.data.attachments, req.user!.sub);
+  if (attachments.length !== parsed.data.attachments.length) {
+    res.status(400).json({ error: 'No encontré alguno de los archivos adjuntos. Volvé a adjuntarlo.' });
+    return;
+  }
   await streamRun(req, res, async (emit) => {
     const conv = (await loadConversation(req.params.id, req.user!.sub))!;
-    await sendUserMessage(conv, req.user!, parsed.data.text, emit);
+    await sendUserMessage(conv, req.user!, parsed.data.text, emit, attachments);
   });
 });
 

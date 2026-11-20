@@ -4,6 +4,8 @@ import { pool } from '../db/client.js';
 import type { AuthClaims, StaffRole } from '../auth.js';
 import { applyPriceChange } from '../routes/catalog.js';
 import type { InternalApi } from './internalApi.js';
+import { findUploadedFile } from '../routes/files.js';
+import { inspectSheets, ListError, readWorkbook, supplierListSchema } from '../catalog/supplierLists.js';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,8 @@ export interface AiTool {
   roles: StaffRole[];
   description: string;
   schema: z.ZodType;
+  /** Pide confirmación aunque el administrador la haya desactivado para el resto de los cambios. */
+  alwaysConfirm?: boolean;
   preview?: (input: never, ctx: ToolContext) => Promise<PreviewResult>;
   run: (input: never, ctx: ToolContext) => Promise<ToolOutput>;
 }
@@ -40,6 +44,7 @@ function defineTool<S extends z.ZodType>(def: {
   roles: StaffRole[];
   description: string;
   schema: S;
+  alwaysConfirm?: boolean;
   preview?: (input: z.infer<S>, ctx: ToolContext) => Promise<PreviewResult>;
   run: (input: z.infer<S>, ctx: ToolContext) => Promise<ToolOutput>;
 }): AiTool {
@@ -794,6 +799,114 @@ const verActividad = defineTool({
 });
 
 // ─── Cambios (siempre a través de la API, con confirmación del usuario) ─────────
+
+// ─── Listas de precios de proveedores ──────────────────────────────────────────
+
+const verPlanilla = defineTool({
+  name: 'ver_planilla',
+  label: 'Mirando la planilla',
+  kind: 'read',
+  roles: ADMIN,
+  description:
+    'Muestra cómo está armada una planilla adjunta (por ejemplo, la lista de precios de un proveedor): sus hojas, la fila de encabezados probable, cada columna con su letra, rango de valores y ejemplos, las primeras filas y las notas. Usala siempre antes de cargar una lista, para elegir hojas y columnas; podés pedir otra hoja u otras filas.',
+  schema: z.object({
+    archivo: z.string().trim().min(1).describe('Id del archivo adjunto (viene en <adjuntos>).'),
+    hoja: z.string().optional().describe('Hoja a mirar en detalle. Por defecto, la primera con datos.'),
+    desde_fila: z.number().int().min(1).optional().describe('Primera fila a mostrar, como la numera Excel. Por defecto, la de encabezados.'),
+    filas: z.number().int().min(1).max(40).optional().describe('Cuántas filas mostrar (por defecto 12, máximo 40).'),
+  }),
+  run: async (input, ctx) => {
+    const file = await findUploadedFile(input.archivo, ctx.user.sub);
+    if (!file) throw new ToolError('No encontré ese archivo (se borran a los 30 días). Pedile al usuario que lo vuelva a adjuntar.');
+    try {
+      const data = inspectSheets(file.name, readWorkbook(file.id, file.data), input);
+      return { data, summary: `«${file.name}»: ${plural(data.hojas.length, 'hoja', 'hojas')}` };
+    } catch (e) {
+      if (e instanceof ListError) throw new ToolError(e.message);
+      throw e;
+    }
+  },
+});
+
+const proveedoresCatalogo = defineTool({
+  name: 'proveedores_del_catalogo',
+  label: 'Mirando los proveedores del catálogo',
+  kind: 'read',
+  roles: ADMIN,
+  description:
+    'Proveedores que tienen productos en el catálogo: cuántos productos activos y dados de baja tiene cada uno y cuándo se actualizó su lista por última vez. Usala antes de cargar una lista, para saber si el proveedor ya existe y con qué nombre exacto.',
+  schema: z.object({}),
+  run: async () => {
+    const { rows } = await pool.query(
+      `select coalesce(supplier, '(sin proveedor)') as proveedor, count(*) filter (where active)::int as activos,
+         count(*) filter (where not active)::int as dados_de_baja, to_char(max(updated_at) at time zone '${TZ}', 'DD/MM/YYYY') as ultima_actualizacion
+       from catalog_products group by 1 order by 2 desc`
+    );
+    return { data: { proveedores: rows }, summary: plural(rows.length, 'proveedor', 'proveedores') };
+  },
+});
+
+interface SupplierListSummary {
+  proveedor: string;
+  archivo: string;
+  productos_en_la_lista: number;
+  por_hoja: Record<string, number>;
+  nuevos: number;
+  actualizados: number;
+  reactivados: number;
+  sin_cambios: number;
+  faltantes: number;
+  dados_de_baja: number;
+  choques_con_otros_proveedores: { cantidad: number; ejemplos: { codigo: string; descripcion: string; proveedor_actual: string }[] };
+  salteados: { cantidad: number; por_motivo: Record<string, number> };
+  ganancia_sobre_costo_con_iva: { minima: string; maxima: string } | null;
+  cambios_de_precio?: { suben: number; bajan: number; promedio: string };
+  ejemplos: { codigo: string; descripcion: string; precio_lista: string; costo_sin_iva: string; iva: string; costo_con_iva: string; precio_venta: string; ganancia: string; precio_anterior?: string }[];
+}
+
+const cargarListaProveedor = defineTool({
+  name: 'cargar_lista_proveedor',
+  label: 'Cargar lista de proveedor',
+  kind: 'write',
+  roles: ADMIN,
+  alwaysConfirm: true,
+  description:
+    'Carga en el catálogo la lista de precios de un proveedor desde un archivo adjunto, con la regla de costo y precio de venta que te explicó el usuario. Crea los productos nuevos, actualiza los que ese proveedor ya tenía (el stock no se toca) y nunca toca productos de otros proveedores. ' +
+    'Cómo calcula: costo sin IVA = precio base (pasado a pesos si está en dólares; sin el IVA si el precio lo incluía) menos los descuentos y más los recargos, uno tras otro. Precio de venta = costo con IVA + ganancia %, o bien el precio de otra columna (por ejemplo, un precio sugerido) + venta_recargo %. Se redondea al peso. ' +
+    'Antes de guardar, el sistema le muestra al usuario cuántos productos entran, se actualizan o se saltean, con ejemplos de costo y precio, para que confirme. Si una hoja tiene otra regla (por ejemplo, precios netos sin descuento), poné esa hoja como otra entrada en "hojas".',
+  schema: supplierListSchema,
+  preview: async (input, ctx) => {
+    const r = await ctx.api.post<SupplierListSummary>('/catalog/supplier-lists', { ...input, dry_run: true });
+    const sheets = Object.entries(r.por_hoja).map(([h, n]) => `${h}: ${n}`).join(', ');
+    const details = [
+      `Archivo: ${r.archivo}`,
+      `Productos en la lista: ${r.productos_en_la_lista}${Object.keys(r.por_hoja).length > 1 ? ` (${sheets})` : ''}`,
+      `Nuevos: ${r.nuevos} · Se actualizan: ${r.actualizados}${r.reactivados ? ` (${r.reactivados} vuelven a estar activos)` : ''}${r.sin_cambios ? ` · Sin cambios: ${r.sin_cambios}` : ''}`,
+      ...(r.cambios_de_precio ? [`Precios de los que ya estaban: suben ${r.cambios_de_precio.suben}, bajan ${r.cambios_de_precio.bajan} (promedio ${r.cambios_de_precio.promedio})`] : []),
+      ...(r.dados_de_baja ? [`Se dan de baja ${r.dados_de_baja} productos del proveedor que no vienen en esta lista`] : r.faltantes ? [`${r.faltantes} productos del proveedor no vienen en esta lista y quedan como están`] : []),
+      ...(r.salteados.cantidad
+        ? [`Filas que no se cargan: ${r.salteados.cantidad} (${Object.entries(r.salteados.por_motivo).map(([m, n]) => `${m}: ${n}`).join(', ')})`]
+        : []),
+      ...(r.ganancia_sobre_costo_con_iva ? [`Ganancia sobre el costo con IVA: de ${r.ganancia_sobre_costo_con_iva.minima} a ${r.ganancia_sobre_costo_con_iva.maxima}`] : []),
+      ...r.ejemplos.map(
+        (e) =>
+          `Ej.: ${e.descripcion} (${e.codigo}): lista ${e.precio_lista} → costo ${e.costo_sin_iva} + IVA ${e.iva} = ${e.costo_con_iva} → venta ${e.precio_venta} (${e.ganancia} de ganancia)${e.precio_anterior ? `; antes ${e.precio_anterior}` : ''}`
+      ),
+    ];
+    const choques = r.choques_con_otros_proveedores;
+    const warning = choques.cantidad
+      ? `${choques.cantidad} códigos ya son productos de otro proveedor y no se tocan (ej.: ${choques.ejemplos.map((c) => `${c.codigo} de ${c.proveedor_actual}`).join(', ')}).`
+      : undefined;
+    return { ok: true, title: `Cargar la lista de ${r.proveedor}`, details, warning };
+  },
+  run: async (input, ctx) => {
+    const r = await ctx.api.post<SupplierListSummary>('/catalog/supplier-lists', { ...input, dry_run: false });
+    return {
+      data: r,
+      summary: `${r.proveedor}: ${plural(r.nuevos, 'producto nuevo', 'productos nuevos')}, ${r.actualizados} actualizados${r.dados_de_baja ? `, ${r.dados_de_baja} dados de baja` : ''}`,
+    };
+  },
+});
 
 const guardarProducto = defineTool({
   name: 'guardar_producto',
@@ -1615,6 +1728,8 @@ export const AI_TOOLS: AiTool[] = [
   verProveedores,
   verCamioneta,
   verActividad,
+  verPlanilla,
+  proveedoresCatalogo,
   guardarProducto,
   ajustarStock,
   actualizarPrecios,
@@ -1631,6 +1746,7 @@ export const AI_TOOLS: AiTool[] = [
   moverCamioneta,
   cargarVenta,
   registrarCobro,
+  cargarListaProveedor,
 ];
 
 const byName = new Map(AI_TOOLS.map((t) => [t.name, t]));

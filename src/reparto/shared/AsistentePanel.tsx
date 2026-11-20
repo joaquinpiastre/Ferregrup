@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, MessageSquare, Plus, Send, Sparkles, Trash2, X, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, Loader2, MessageSquare, Paperclip, Plus, Send, Sparkles, Trash2, X, XCircle } from 'lucide-react';
 import {
   confirmAiActions,
   createAiConversation,
@@ -8,6 +8,8 @@ import {
   fetchAiConversations,
   fetchAiMe,
   sendAiMessage,
+  uploadAiFile,
+  type UploadedFile,
 } from '../api';
 import type { AiChatItem, AiConfirmAction, AiConversation, AiConversationSummary, AiEvent, AiMe, Session } from '../types';
 import Markdown from './Markdown';
@@ -61,6 +63,20 @@ function ToolChip({ item }: { item: Extract<AiChatItem, { kind: 'tool' }> }) {
   );
 }
 
+function FileChip({ name, onRemove }: { name: string; onRemove?: () => void }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, maxWidth: '100%', background: '#1f1f1f', border: '1px solid #333', borderRadius: 6, padding: '3px 7px', fontSize: 12, color: '#ddd' }}>
+      <FileSpreadsheet size={13} color="#4ade80" style={{ flexShrink: 0 }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+      {onRemove && (
+        <button aria-label={`Quitar ${name}`} onClick={onRemove} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: 0, display: 'flex' }}>
+          <X size={12} />
+        </button>
+      )}
+    </span>
+  );
+}
+
 export default function AsistentePanel({ session, compact }: Props) {
   const token = session.token;
   const [me, setMe] = useState<AiMe | null>(null);
@@ -71,6 +87,11 @@ export default function AsistentePanel({ session, compact }: Props) {
   const [pending, setPending] = useState<AiConfirmAction[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState('');
+  // Archivos adjuntos para el próximo mensaje (listas de precios de proveedores).
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [attachError, setAttachError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadError, setLoadError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const iterationStart = useRef(0);
@@ -193,9 +214,12 @@ export default function AsistentePanel({ session, compact }: Props) {
 
   async function send(textArg?: string) {
     const text = (textArg ?? input).trim();
-    if (!text || busy) return;
+    const attached = textArg === undefined ? files : [];
+    if ((!text && attached.length === 0) || busy || uploading) return;
     setBusy(true);
     setInput('');
+    if (attached.length) setFiles([]);
+    setAttachError('');
     setPending(null);
     let id = activeId;
     try {
@@ -205,18 +229,39 @@ export default function AsistentePanel({ session, compact }: Props) {
         setConv({ id, title: 'Nueva conversación', items: [], pending: null, contextTokens: 0, running: false, roleChanged: false });
         setActiveId(id);
       }
-      const userItem: AiChatItem = { kind: 'user', id: `live-u-${Date.now()}`, text };
+      const userItem: AiChatItem = {
+        kind: 'user',
+        id: `live-u-${Date.now()}`,
+        text,
+        ...(attached.length ? { attachments: attached.map((f) => ({ id: f.id, name: f.name })) } : {}),
+      };
       setLive([userItem]);
       liveCount.current = 1;
       iterationStart.current = 1;
       // Si había cambios esperando confirmación, el servidor los descarta.
       setConv((c) => (c ? { ...c, items: c.items.map((it) => (it.kind === 'tool' && it.status === 'pendiente' ? { ...it, status: 'cancelado' } : it)) } : c));
-      await sendAiMessage(token, id, text, handleEvent);
+      await sendAiMessage(token, id, text, handleEvent, attached.map((f) => f.id));
     } catch (e) {
       setLive((l) => [...l, { kind: 'error', id: `live-e-${Date.now()}`, text: e instanceof Error ? e.message : 'No se pudo enviar el mensaje.' }]);
     } finally {
       if (id) await finishRun(id);
       setBusy(false);
+    }
+  }
+
+  async function attach(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAttachError('');
+    setUploading(true);
+    try {
+      const up = await uploadAiFile(token, file);
+      setFiles((list) => [...list, up].slice(-3));
+    } catch (err) {
+      setAttachError(err instanceof Error ? err.message : 'No se pudo subir el archivo.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -272,6 +317,7 @@ export default function AsistentePanel({ session, compact }: Props) {
               ? 'Tu rol cambió desde que empezaste esta conversación: empezá una nueva.'
               : null;
   const canType = !!me && !blockedReason && !busy;
+  const canAttach = canType && session.staff.role === 'admin' && me?.access === 'write';
   const suggestions = SUGGESTIONS[session.staff.role];
 
   const list = (
@@ -354,6 +400,12 @@ export default function AsistentePanel({ session, compact }: Props) {
                 Preguntale por productos, stock, clientes, ventas o cobros.
                 {me?.access === 'write' ? ' También puede hacer cambios en los datos: siempre te muestra qué va a cambiar antes de aplicarlo.' : ''}
               </div>
+              {session.staff.role === 'admin' && me?.access === 'write' && (
+                <div style={{ color: '#888', fontSize: 12, marginBottom: 16, display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'flex-start', textAlign: 'left' }}>
+                  <Paperclip size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>Para cargar la lista de precios de un proveedor, adjuntá el Excel con el clip y explicale la regla. Por ejemplo: «precios sin IVA, sumale 5% de flete y 35% de ganancia».</span>
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {suggestions.map((s) => (
                   <button key={s} className="btn-secondary" style={{ justifyContent: 'flex-start', fontSize: 13, textAlign: 'left' }} disabled={!canType} onClick={() => void send(s)}>
@@ -368,6 +420,11 @@ export default function AsistentePanel({ session, compact }: Props) {
             if (it.kind === 'user')
               return (
                 <div key={it.id} style={{ alignSelf: 'flex-end', maxWidth: '85%', background: '#2d1100', border: '1px solid #FE480633', color: '#fff', padding: '8px 12px', borderRadius: '12px 12px 2px 12px', fontSize: 14, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                  {it.attachments && it.attachments.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: it.text ? 6 : 0 }}>
+                      {it.attachments.map((f) => <FileChip key={f.id} name={f.name} />)}
+                    </div>
+                  )}
                   {it.text}
                 </div>
               );
@@ -425,12 +482,40 @@ export default function AsistentePanel({ session, compact }: Props) {
           {me?.access === 'read' && !blockedReason && (
             <div style={{ color: '#666', fontSize: 11, marginBottom: 6 }}>Tu acceso es de solo consultas: la IA puede responder pero no modificar datos.</div>
           )}
+          {(files.length > 0 || uploading || attachError) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+              {files.map((f) => (
+                <FileChip key={f.id} name={f.name} onRemove={() => setFiles((list) => list.filter((x) => x.id !== f.id))} />
+              ))}
+              {uploading && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#888', fontSize: 12 }}>
+                  <Loader2 size={12} className="animate-spin" /> Subiendo archivo…
+                </span>
+              )}
+              {attachError && <span style={{ color: '#f87171', fontSize: 12 }}>{attachError}</span>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            {session.staff.role === 'admin' && (
+              <>
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void attach(e)} />
+                <button
+                  className="btn-secondary"
+                  style={{ height: 40, padding: '0 10px' }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!canAttach || uploading || files.length >= 3}
+                  aria-label="Adjuntar planilla"
+                  title="Adjuntar una planilla (Excel o CSV), por ejemplo la lista de precios de un proveedor"
+                >
+                  <Paperclip size={15} />
+                </button>
+              </>
+            )}
             <textarea
               className="input-field"
               rows={1}
               value={input}
-              placeholder={canType ? 'Escribí tu pregunta o pedido…' : ''}
+              placeholder={canType ? (files.length ? 'Explicale qué hacer con el archivo…' : 'Escribí tu pregunta o pedido…') : ''}
               disabled={!canType}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -441,7 +526,7 @@ export default function AsistentePanel({ session, compact }: Props) {
               }}
               style={{ resize: 'none', minHeight: 40, maxHeight: 160, fieldSizing: 'content' } as CSSProperties}
             />
-            <button className="btn-primary" style={{ height: 40 }} onClick={() => void send()} disabled={!canType || !input.trim()} aria-label="Enviar">
+            <button className="btn-primary" style={{ height: 40 }} onClick={() => void send()} disabled={!canType || uploading || (!input.trim() && files.length === 0)} aria-label="Enviar">
               {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
             </button>
           </div>

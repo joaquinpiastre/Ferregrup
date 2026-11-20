@@ -437,3 +437,18 @@ create table if not exists ai_usage (
 
 create index if not exists idx_ai_usage_staff_created on ai_usage (staff_id, created_at_ms desc);
 create index if not exists idx_ai_usage_created on ai_usage (created_at_ms desc);
+
+-- ─── Archivos adjuntos (por ahora: listas de precios que se le pasan a la IA) ───
+-- Se guardan en la base porque el disco del servidor se borra en cada despliegue.
+-- Se borran solos a los 30 días.
+create table if not exists uploaded_files (
+  id text primary key,
+  staff_id text not null references staff(id),
+  file_name text not null,
+  mime text,
+  size integer not null,
+  data bytea not null,
+  created_at_ms bigint not null
+);
+
+create index if not exists idx_uploaded_files_staff on uploaded_files (staff_id, created_at_ms desc);

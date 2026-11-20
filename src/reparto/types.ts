@@ -415,7 +415,7 @@ export interface AiConversationSummary {
 export type AiToolStatus = 'ok' | 'error' | 'cancelado' | 'pendiente' | 'running';
 
 export type AiChatItem =
-  | { kind: 'user'; id: string; text: string; at?: number }
+  | { kind: 'user'; id: string; text: string; at?: number; attachments?: { id: string; name: string }[] }
   | { kind: 'assistant'; id: string; text: string; at?: number }
   | { kind: 'tool'; id: string; name: string; label: string; status: AiToolStatus; summary?: string }
   | { kind: 'error'; id: string; text: string };

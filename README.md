@@ -45,11 +45,21 @@ Cada producto tiene **precio de venta** (final, con IVA: es lo que ven y cobran 
 
 El catálogo se arma con las listas de precios de cada proveedor. Cada proveedor tiene su propia regla para sacar de su lista el costo y el precio de venta (descuentos, envío, IVA, ganancia). Esas reglas son datos del negocio y no se guardan en el repo. Al actualizar una lista hay que aplicar la regla de ese proveedor y tocar solo sus productos; en cada carga conviene controlar que los códigos no choquen con los de otra lista.
 
+**Carga de listas con el asistente de IA.** El admin adjunta la lista del proveedor en el chat del asistente (clip; `.xlsx`, `.xls` o `.csv`, hasta 20 MB) y le explica la regla con sus palabras. La IA mira la planilla (`ver_planilla`: hojas, encabezados, columnas, notas), revisa si el proveedor ya existe (`proveedores_del_catalogo`) y llama a `cargar_lista_proveedor`, que siempre pide confirmación (aunque el admin haya desactivado las confirmaciones) y muestra antes cuántos productos entran, cuántos se actualizan y cuántos se saltean, con ejemplos de costo y precio.
+- El cálculo está en `server/src/catalog/supplierLists.ts`. Sirve para precio base en pesos o en dólares (con cotización), con o sin IVA, descuentos y recargos en cadena, IVA por columna o fijo, y venta por % de ganancia o desde otra columna (precio sugerido) con recargo.
+- La carga la hace `POST /catalog/supplier-lists`, con `dry_run` para la vista previa:
+  - crea los productos nuevos con stock 0;
+  - actualiza los que ya son de ese proveedor, sin tocar el stock;
+  - no toca nunca un código de otro proveedor (lo informa);
+  - da de baja los productos que faltan en la lista solo si se pide.
+- Los archivos se guardan en la tabla `uploaded_files` (`POST /files`, solo admin y nunca el token de la IA) y se borran a los 30 días.
+- Para leer `.xls` se usa SheetJS bajado de su CDN oficial (`server/package.json`): la versión de npm está vieja y tiene vulnerabilidades conocidas.
+
 La búsqueda de productos (`src/reparto/shared/catalogSearch.ts`) es la misma en todas las pantallas. Arma una sola vez el texto de búsqueda de cada producto y encuentra las palabras en cualquier orden ("taladro bosch"), porque el catálogo tiene miles de productos.
 
 ### Importación de catálogo desde Excel (se sacó)
 
-Hasta noviembre de 2026 Catálogo tenía un botón **Importar Excel** que reemplazaba el catálogo entero con un archivo. Ese botón tomaba el precio de lista del proveedor como precio de venta, no cargaba costos y daba de baja todo lo que no estuviera en el archivo. Con varias listas de proveedores, cada una con su regla de precios, eso pisaba los precios de venta y daba de baja los productos de los otros proveedores, así que se sacaron el botón y la ruta `/catalog/import/*`.
+Hasta noviembre de 2026 Catálogo tenía un botón **Importar Excel** que reemplazaba el catálogo entero con un archivo. Ese botón tomaba el precio de lista del proveedor como precio de venta, no cargaba costos y daba de baja todo lo que no estuviera en el archivo. Con varias listas de proveedores, cada una con su regla de precios, eso pisaba los precios de venta y daba de baja los productos de los otros proveedores, así que se sacaron el botón y la ruta `/catalog/import/*`. Ahora las listas se cargan con el asistente de IA (ver arriba).
 
 ### Asistente de IA
 

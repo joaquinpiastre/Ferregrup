@@ -69,7 +69,7 @@ export interface MessageRow {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: MessageParam['content'];
-  meta: { hidden?: number[]; tools?: Record<string, ToolMeta> } | null;
+  meta: { hidden?: number[]; tools?: Record<string, ToolMeta>; attachments?: { id: string; name: string }[] } | null;
   created_at_ms: string;
 }
 
@@ -361,7 +361,7 @@ async function runLoop(rc: RunContext): Promise<void> {
         settle(tu.id, resultBlock(tu.id, { error: preview.error }, true), { status: 'error', summary: preview.error });
         continue;
       }
-      if (settings.requireConfirmation) {
+      if (settings.requireConfirmation || tool.alwaysConfirm) {
         actions.push({ id: tu.id, name: tu.name, input: parsed.data, title: preview.title, details: preview.details, warning: preview.warning });
         continue;
       }
@@ -404,7 +404,13 @@ async function guarded(rc: RunContext): Promise<void> {
 }
 
 /** Mensaje nuevo del usuario. Si había cambios esperando confirmación, quedan descartados. */
-export async function sendUserMessage(conv: ConversationRow, user: AuthClaims, text: string, emit: Emit): Promise<void> {
+export async function sendUserMessage(
+  conv: ConversationRow,
+  user: AuthClaims,
+  text: string,
+  emit: Emit,
+  attachments: { id: string; name: string }[] = []
+): Promise<void> {
   const rc = await prepare(conv, user, emit);
   if (!rc) return;
 
@@ -427,11 +433,21 @@ export async function sendUserMessage(conv: ConversationRow, user: AuthClaims, t
       }
     }
   }
-  const content = [...prefix, { type: 'text', text: contextBlock(rc.cfg.access) }, { type: 'text', text }];
-  await appendMessage(conv.id, 'user', content, { hidden: [prefix.length], ...(prefix.length ? { tools: toolsMeta } : {}) });
+  // Los adjuntos le llegan al modelo con su id (para usarlo en las herramientas); en el chat se
+  // muestran aparte, con su nombre.
+  const files = attachments.length
+    ? [{ type: 'text', text: ['<adjuntos>', ...attachments.map((a) => `- «${a.name}» (archivo: ${a.id})`), '</adjuntos>'].join('\n') }]
+    : [];
+  const content = [...prefix, { type: 'text', text: contextBlock(rc.cfg.access) }, ...files, ...(text ? [{ type: 'text', text }] : [])];
+  const hidden = files.length ? [prefix.length, prefix.length + 1] : [prefix.length];
+  await appendMessage(conv.id, 'user', content, {
+    hidden,
+    ...(prefix.length ? { tools: toolsMeta } : {}),
+    ...(attachments.length ? { attachments } : {}),
+  });
   await setPending(conv.id, null);
   if (conv.title === 'Nueva conversación') {
-    const title = text.replace(/\s+/g, ' ').trim().slice(0, 60);
+    const title = (text || attachments.map((a) => a.name).join(', ')).replace(/\s+/g, ' ').trim().slice(0, 60);
     await pool.query(`update ai_conversations set title = $2 where id = $1`, [conv.id, title || 'Conversación']);
   }
   await guarded(rc);

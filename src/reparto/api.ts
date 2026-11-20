@@ -621,8 +621,34 @@ async function streamAi(token: string, path: string, body: unknown, onEvent: (e:
   if (buffer.trim()) onEvent(JSON.parse(buffer) as AiEvent);
 }
 
-export function sendAiMessage(token: string, conversationId: string, text: string, onEvent: (e: AiEvent) => void): Promise<void> {
-  return streamAi(token, `/ai/conversations/${encodeURIComponent(conversationId)}/messages`, { text }, onEvent);
+export function sendAiMessage(
+  token: string,
+  conversationId: string,
+  text: string,
+  onEvent: (e: AiEvent) => void,
+  attachments: string[] = []
+): Promise<void> {
+  return streamAi(token, `/ai/conversations/${encodeURIComponent(conversationId)}/messages`, { text, attachments }, onEvent);
+}
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+}
+
+/** Sube un archivo para adjuntarlo en el chat de la IA (solo administradores). */
+export async function uploadAiFile(token: string, file: File): Promise<UploadedFile> {
+  if (!API_URL) throw new Error('El servidor de reparto no está configurado (falta VITE_API_URL).');
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/files`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  if (!res.ok) {
+    if (res.status === 401) expireSession();
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `Error ${res.status}`);
+  }
+  return res.json() as Promise<UploadedFile>;
 }
 
 export function confirmAiActions(token: string, conversationId: string, approve: boolean, onEvent: (e: AiEvent) => void): Promise<void> {
