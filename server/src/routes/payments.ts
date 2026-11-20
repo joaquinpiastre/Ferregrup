@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
+import { collectionsChanged } from '../collections.js';
 
 export const paymentsRouter = Router();
 
@@ -78,6 +79,7 @@ paymentsRouter.post('/payments', requireAuth, async (req, res) => {
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [id, p.clientId ?? null, p.clientName, p.courierId, p.courierName, p.amount, p.method, p.checkNumber ?? null, p.bank ?? null, p.notes ?? null, p.installmentId ?? null, Date.now()]
   );
+  collectionsChanged();
   await logActivity(
     req.user!,
     'payment.create',
@@ -117,6 +119,7 @@ paymentsRouter.patch('/payments/:id', requireAuth, requireRole('admin'), async (
     res.status(404).json({ error: 'Cobro no encontrado.' });
     return;
   }
+  collectionsChanged();
   await logActivity(req.user!, 'payment.update', `Corrigió un cobro de ${rows[0].clientName}: ahora es de ${Number(rows[0].amount)} (${rows[0].method})`);
   res.json({ ok: true });
 });
@@ -130,6 +133,7 @@ paymentsRouter.delete('/payments/:id', requireAuth, requireRole('admin'), async 
     res.status(404).json({ error: 'Cobro no encontrado.' });
     return;
   }
+  collectionsChanged();
   await logActivity(
     req.user!,
     'payment.delete',

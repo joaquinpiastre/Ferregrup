@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
 import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
+import { addDays, arToday, mondayOf } from '../collections.js';
 
 export const clientsRouter = Router();
 
@@ -18,26 +19,61 @@ clientsRouter.get('/clients', requireAuth, async (_req, res) => {
 // ─── Cuentas: saldo de todos los clientes (ventas cargadas - cobros) ───────────
 
 clientsRouter.get('/clients/accounts', requireAuth, requireRole('admin', 'repartidor', 'vendedor'), async (_req, res) => {
-  const { rows } = await pool.query(`
+  const thisWeek = mondayOf(arToday());
+  // Además del saldo, por cliente: cuándo vence su próxima cuota sin cobrar, cuánto tiene
+  // atrasado (vencido en semanas anteriores, igual que el panel Atrasados) y cuánto le vence
+  // esta semana. Todo sale de las cuotas todavía sin cobrar del todo.
+  const { rows } = await pool.query(
+    `
+    with open_inst as (
+      select s.client_id, si.due_date, si.amount - coalesce(p.paid, 0) as remaining
+      from sale_installments si
+      join sales s on s.id = si.sale_id
+      left join (
+        select installment_id, sum(amount) as paid from payments where installment_id is not null group by installment_id
+      ) p on p.installment_id = si.id
+      where s.client_id is not null and si.due_date is not null and si.amount - coalesce(p.paid, 0) > 0.005
+    ), dues as (
+      select client_id, next_due,
+        sum(remaining) filter (where due_date = next_due) as next_due_amount,
+        coalesce(sum(remaining) filter (where due_date < $1::date), 0) as overdue,
+        count(*) filter (where due_date < $1::date)::int as overdue_count,
+        coalesce(sum(remaining) filter (where due_date >= $1::date and due_date < $2::date), 0) as due_this_week
+      from (select *, min(due_date) over (partition by client_id) as next_due from open_inst) x
+      group by client_id, next_due
+    )
     select c.id, c.name, c.address, c.phone, c.type,
       coalesce(s.total, 0) as charged,
       coalesce(p.total, 0) as paid,
-      ls.courier_name as seller
+      ls.courier_name as seller,
+      ls.courier_id as "sellerId",
+      d.next_due::text as "nextDue",
+      d.next_due_amount as "nextDueAmount",
+      coalesce(d.overdue, 0) as overdue,
+      coalesce(d.overdue_count, 0) as "overdueCount",
+      coalesce(d.due_this_week, 0) as "dueThisWeek"
     from clients c
     left join lateral (
-      select courier_name from sales where client_id = c.id order by created_at_ms desc limit 1
+      select courier_name, courier_id from sales where client_id = c.id order by created_at_ms desc limit 1
     ) ls on true
     left join (select client_id, sum(amount) as total from sales where client_id is not null group by client_id) s on s.client_id = c.id
     left join (select client_id, sum(amount) as total from payments where client_id is not null group by client_id) p on p.client_id = c.id
+    left join dues d on d.client_id = c.id
     where c.active = true
     order by c.name
-  `);
+  `,
+    [thisWeek, addDays(thisWeek, 7)]
+  );
   res.json({
     accounts: rows.map((r) => ({
       ...r,
       charged: Number(r.charged),
       paid: Number(r.paid),
       balance: Number(r.charged) - Number(r.paid),
+      nextDueAmount: r.nextDueAmount === null ? null : Number(r.nextDueAmount),
+      overdue: Number(r.overdue),
+      overdueCount: Number(r.overdueCount),
+      dueThisWeek: Number(r.dueThisWeek),
     })),
   });
 });

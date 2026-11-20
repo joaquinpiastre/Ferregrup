@@ -6,18 +6,28 @@ import type { ClientAccount, FieldClient, FieldClientType } from '../types';
 interface Props {
   token: string;
   canDelete: boolean;
+  /** Usuario actual cuando es repartidor/vendedor: la lista arranca filtrada en sus clientes. */
+  mineId?: string;
 }
+
+const PAGE = 100;
 
 type Filter = 'todos' | FieldClientType;
 
 const emptyForm = () => ({ name: '', address: '', phone: '', notes: '', type: 'cliente' as FieldClientType });
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
-export default function ClientesPanel({ token, canDelete }: Props) {
+export default function ClientesPanel({ token, canDelete, mineId }: Props) {
   const [clients, setClients] = useState<FieldClient[]>([]);
   const [balances, setBalances] = useState<Map<string, number>>(new Map());
+  // Vendedor de cada cliente (el de su última venta), para filtrar.
+  const [sellerOf, setSellerOf] = useState<Map<string, { id: string; name: string }>>(new Map());
+  const [sellerFilter, setSellerFilter] = useState<string>(mineId ? 'mios' : 'todos');
   const [filter, setFilter] = useState<Filter>('todos');
   const [search, setSearch] = useState('');
+  const filterKey = `${search}|${filter}|${sellerFilter}`;
+  const [page, setPage] = useState({ key: filterKey, size: PAGE });
+  const limit = page.key === filterKey ? page.size : PAGE;
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<FieldClient | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -28,7 +38,11 @@ export default function ClientesPanel({ token, canDelete }: Props) {
   useEffect(() => {
     let cancelled = false;
     fetchClientAccounts(token)
-      .then((accounts: ClientAccount[]) => { if (!cancelled) setBalances(new Map(accounts.map((a) => [a.id, a.balance]))); })
+      .then((accounts: ClientAccount[]) => {
+        if (cancelled) return;
+        setBalances(new Map(accounts.map((a) => [a.id, a.balance])));
+        setSellerOf(new Map(accounts.filter((a) => a.sellerId).map((a) => [a.id, { id: a.sellerId!, name: a.seller ?? a.sellerId! }])));
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [token, clients.length]);
@@ -39,11 +53,25 @@ export default function ClientesPanel({ token, canDelete }: Props) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const sellerId = sellerFilter === 'mios' ? mineId : sellerFilter === 'todos' ? undefined : sellerFilter;
     return clients
       .filter((c) => filter === 'todos' || c.type === filter)
-      .filter((c) => !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q) || (c.phone ?? '').includes(q))
+      // "Mis clientes" incluye a los que todavía no tienen ninguna venta (recién cargados).
+      .filter((c) => !sellerId || sellerOf.get(c.id)?.id === sellerId || (sellerFilter === 'mios' && !sellerOf.has(c.id)))
+      .filter((c) => !q || c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q) || (c.phone ?? '').includes(q) || (c.notes ?? '').toLowerCase().includes(q))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [clients, filter, search]);
+  }, [clients, filter, search, sellerFilter, sellerOf, mineId]);
+
+  const sellers = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; count: number }>();
+    for (const s of sellerOf.values()) {
+      const e = map.get(s.id) ?? { ...s, count: 0 };
+      e.count += 1;
+      map.set(s.id, e);
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }, [sellerOf]);
+  const visible = filtered.slice(0, limit);
 
   function openAdd() {
     setEditing(null);
@@ -89,8 +117,15 @@ export default function ClientesPanel({ token, canDelete }: Props) {
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
           <Search size={14} color="#666" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} />
-          <input className="input-field" style={{ paddingLeft: 32 }} placeholder="Buscar por nombre, dirección o teléfono..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="input-field" style={{ paddingLeft: 32 }} placeholder="Buscar por nombre, dirección, teléfono o DNI..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        {sellers.length > 0 && (
+          <select className="input-field" style={{ width: 'auto', flex: '0 1 210px' }} value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)} aria-label="Vendedor">
+            {mineId && <option value="mios">Mis clientes</option>}
+            <option value="todos">Todos los vendedores</option>
+            {sellers.filter((s) => s.id !== mineId).map((s) => <option key={s.id} value={s.id}>{s.name} ({s.count})</option>)}
+          </select>
+        )}
         <select className="input-field" style={{ width: 160 }} value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
           <option value="todos">Todos ({clients.length})</option>
           <option value="cliente">Clientes ({clients.filter((c) => c.type === 'cliente').length})</option>
@@ -138,13 +173,13 @@ export default function ClientesPanel({ token, canDelete }: Props) {
         <p style={{ color: '#666', fontSize: 14 }}>No hay clientes que coincidan.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map((c) => (
+          {visible.map((c) => (
             <div key={c.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                 {c.type === 'taller' ? <Building2 size={16} color="#FE4806" /> : <User size={16} color="#60a5fa" />}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{c.name}</div>
-                  <div style={{ color: '#888', fontSize: 12 }}>{c.address}{c.phone ? ` · ${c.phone}` : ''}</div>
+                  <div style={{ color: '#888', fontSize: 12 }}>{c.address}{c.phone ? ` · ${c.phone}` : ''}{sellerOf.has(c.id) ? ` · ${sellerOf.get(c.id)!.name}` : ''}</div>
                   {c.notes && <div style={{ color: '#666', fontSize: 12, marginTop: 2 }}>{c.notes}</div>}
                 </div>
               </div>
@@ -166,6 +201,11 @@ export default function ClientesPanel({ token, canDelete }: Props) {
               </div>
             </div>
           ))}
+          {filtered.length > visible.length && (
+            <button className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setPage({ key: filterKey, size: limit + PAGE })}>
+              Mostrar más ({visible.length} de {filtered.length})
+            </button>
+          )}
         </div>
       )}
     </div>

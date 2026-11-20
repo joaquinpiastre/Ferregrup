@@ -143,9 +143,9 @@ export default function RepartidorShell({ session, onLogout }: Props) {
           {section === 'ruta' && <RutaDelDia session={session} stops={stops} onChanged={refreshStops} />}
           {section === 'pedido' && <PedidoCalle session={session} orders={orders} onOrderCreated={(o) => setOrders((prev) => [o, ...prev])} onOrderChanged={refreshOrders} />}
           {section === 'ventas' && <VentasPanel token={session.token} courier={{ id: session.staff.id, name: session.staff.name }} canDelete={false} />}
-          {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} />}
+          {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} mineId={session.staff.id} />}
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit={false} />}
-          {section === 'cuentas' && <CuentasPanel token={session.token} />}
+          {section === 'cuentas' && <CuentasPanel token={session.token} mineId={session.staff.id} />}
           {section === 'cobros' && <CobrosForm session={session} />}
           {section === 'atrasados' && <AtrasadosPanel token={session.token} />}
           {section === 'asistente' && <AsistentePanel session={session} compact />}

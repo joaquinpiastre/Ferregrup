@@ -16,6 +16,23 @@ El seed inicial (`npm run seed` dentro de `server/`) crea dos usuarios de ejempl
 
 El saldo de un cliente es simplemente `ventas cargadas - cobros registrados`. El admin carga una venta (panel **Ventas**) a nombre de un cliente y asignada a un repartidor; eso sube el saldo del cliente y cuenta como "vendido" para el objetivo de ese repartidor. Cuando el repartidor cobra (o el admin lo carga desde **Cobros**), el saldo baja y ese monto cuenta como "recaudado". Las ventas pueden ser en cuotas **semanales** (la 1ª en la fecha elegida, las demás cada 7 días). El **objetivo** de cada repartidor ya no se carga a mano: en cada semana (lunes a domingo) es la suma de las cuotas de sus ventas que vencen esa semana **más lo que quedó sin cobrar de semanas anteriores**. Lo cobrado es lo aplicado a esas cuotas durante la semana (en Cobros hay que elegir a qué cuota corresponde el pago; un "pago general" no baja ningún atraso). El panel **Objetivos** guarda el historial semana a semana (cuotas, arrastre, objetivo, cobrado y cuánto faltó) y muestra las próximas 4 semanas. El panel **Atrasados** lista solo lo vencido en semanas anteriores y todavía no cobrado, por cliente, con cuántas cuotas se atrasó y hace cuántas semanas.
 
+### Cuentas corrientes: próximo pago, atrasos y clientes por vendedor
+
+En **Cuentas corrientes** cada cliente muestra, además del saldo, qué le toca pagar: cuánto tiene **atrasado** (cuotas vencidas en semanas anteriores, igual que el panel Atrasados), cuánto le **vence esta semana** y la fecha y el monto de su **próximo pago**. Arriba están los totales (adeudado, atrasado, vence esta semana) y se puede filtrar por vendedor y por estado (con deuda, atrasados, vencen esta semana, sin deuda) y ordenar por deuda, próximo vencimiento, atraso o nombre. El vendedor de un cliente es el de su venta más reciente. Repartidores y vendedores arrancan viendo **"Mis clientes"** (también en Clientes) y pueden pasar a ver todos. Las listas largas se muestran de a 100.
+
+El panel **Objetivos** muestra el historial de las últimas 12 semanas y las próximas 4; Objetivos y Atrasados se calculan solo con las cuotas que todavía importan para esas semanas y el resultado se guarda unos segundos (se descarta apenas se carga, corrige o borra una venta o un cobro), porque esas pantallas se refrescan solas.
+
+### Cuentas corrientes históricas (importadas de Excel)
+
+El 19/11/2026 se cargaron las cuentas corrientes que los repartidores llevaban en planillas de Excel (una por cliente): 918 clientes con sus compras, planes de cuotas y cobros. Todo lo importado tiene ids que empiezan con `imp-` (clientes `imp-<repartidor>-NNN`, ventas `…-vN`, cuotas `…-cN`, cobros `…-pN`) y quedó asignado al repartidor dueño de la planilla. Criterios usados:
+
+- El saldo de cada cliente es el que surge de su planilla, calculado como lo hacía esa planilla ("cuotas − pagado" en la mayoría, "productos − pagado" en las de entregas variables).
+- Los cobros se aplicaron en orden a las cuotas de su compra (si alguien pagó de más en una cuota, el excedente cubre la siguiente). Restos menores a $1.000 quedan en el saldo pero no como cuota atrasada.
+- La próxima cuota impaga vence un período después del último pago de esa compra (7 días; 14 o 30 si la planilla decía quincenal/mensual o así venía pagando) y las siguientes, una por período.
+- Los ítems importados no tienen código de catálogo (va en el texto), así que no tocaron ni tocan el stock.
+
+Las planillas originales y el informe de la importación no están en el repo (carpeta `CUENTA_CORRIENTE/`, ignorada por git porque son datos de clientes).
+
 ### Mapa en vivo y trackers GPS
 
 El **mapa en vivo** (panel admin) funciona hoy por navegador: mientras el repartidor tiene un turno activo, la app le pide permiso de ubicación al celular y manda su posición cada 20s. No requiere ningún hardware — funciona apenas el repartidor abre la app en su teléfono y arranca el turno.

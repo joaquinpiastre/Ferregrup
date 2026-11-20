@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireAuth, requireRole } from '../auth.js';
 import { pool } from '../db/client.js';
 import { logActivity } from '../activityLog.js';
-import { addDays, addMonths } from '../collections.js';
+import { addDays, addMonths, collectionsChanged } from '../collections.js';
 import { itemsJsonAgg, installmentsJsonAgg } from '../db/sqlFragments.js';
 
 export const salesRouter = Router();
@@ -126,6 +126,7 @@ salesRouter.post('/sales', requireAuth, requireRole('admin', 'repartidor', 'vend
   } finally {
     client.release();
   }
+  collectionsChanged();
   await logActivity(
     req.user!,
     'sale.create',
@@ -158,6 +159,7 @@ salesRouter.delete('/sales/:id', requireAuth, requireRole('admin'), async (req, 
   } finally {
     client.release();
   }
+  collectionsChanged();
   await logActivity(req.user!, 'sale.delete', `Eliminó una venta cargada`);
   res.json({ ok: true });
 });

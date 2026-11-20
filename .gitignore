@@ -37,3 +37,6 @@ server/tsconfig.tsbuildinfo
 # Listas de precios reales del negocio: no van al repo
 *.xlsx
 *.xls
+
+# Cuentas corrientes de clientes (planillas, informe de importación, backups): no van al repo
+CUENTA_CORRIENTE/

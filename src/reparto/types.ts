@@ -249,6 +249,15 @@ export interface ClientAccount {
   balance: number;
   /** Vendedor que lo atiende: el de su venta más reciente. */
   seller?: string | null;
+  sellerId?: string | null;
+  /** Vencimiento (AAAA-MM-DD) de la cuota sin cobrar más próxima, y cuánto vence ese día. */
+  nextDue?: string | null;
+  nextDueAmount?: number | null;
+  /** Cuotas vencidas en semanas anteriores y todavía sin cobrar (igual que el panel Atrasados). */
+  overdue: number;
+  overdueCount: number;
+  /** Lo que le vence esta semana (lunes a domingo). */
+  dueThisWeek: number;
 }
 
 export interface ClientStatementEntry {

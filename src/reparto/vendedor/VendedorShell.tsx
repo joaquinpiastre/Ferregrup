@@ -115,10 +115,10 @@ export default function VendedorShell({ session, onLogout }: Props) {
           {section === 'asistente' && <AsistentePanel session={session} />}
           {section === 'ventas' && <VentasPanel token={session.token} courier={{ id: session.staff.id, name: session.staff.name }} canDelete={false} />}
           {section === 'cotizaciones' && <CotizacionesPanel token={session.token} />}
-          {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} />}
+          {section === 'clientes' && <ClientesPanel token={session.token} canDelete={false} mineId={session.staff.id} />}
           {section === 'catalogo' && <CatalogoPanel token={session.token} canEdit={false} />}
           {section === 'stock' && <StockPanel token={session.token} readOnly />}
-          {section === 'cuentas' && <CuentasPanel token={session.token} />}
+          {section === 'cuentas' && <CuentasPanel token={session.token} mineId={session.staff.id} />}
           {section === 'cobros' && <CobrosForm session={session} />}
           {section === 'atrasados' && <AtrasadosPanel token={session.token} />}
         </div>

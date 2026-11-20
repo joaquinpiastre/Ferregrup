@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../auth.js';
-import { arToday, daysBetween, loadInstallments, mondayOf, paidUntil } from '../collections.js';
+import { arToday, cachedCollections, daysBetween, loadOverdueInstallments, mondayOf } from '../collections.js';
 
 export const overdueRouter = Router();
 
@@ -10,8 +10,13 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // completa. Una cuota que vence esta semana no cuenta hasta que la semana termine.
 overdueRouter.get('/overdue', requireAuth, async (req, res) => {
   const courierId = req.user!.role !== 'admin' ? req.user!.sub : undefined;
-  const installments = await loadInstallments(courierId);
+  res.json(await cachedCollections(`overdue:${courierId ?? '*'}`, () => computeOverdue(courierId)));
+});
+
+async function computeOverdue(courierId: string | undefined) {
   const thisWeek = mondayOf(arToday());
+  // Solo las cuotas vencidas antes de esta semana y todavía sin cobrar del todo (filtrado en la base).
+  const installments = await loadOverdueInstallments(thisWeek, courierId);
 
   const clients = new Map<string, {
     clientId: string | null;
@@ -25,7 +30,7 @@ overdueRouter.get('/overdue', requireAuth, async (req, res) => {
 
   for (const inst of installments) {
     if (inst.dueDate >= thisWeek) continue;
-    const paid = paidUntil(inst);
+    const paid = inst.paid;
     const remaining = round2(inst.amount - paid);
     if (remaining <= 0.005) continue;
 
@@ -62,9 +67,9 @@ overdueRouter.get('/overdue', requireAuth, async (req, res) => {
     })
     .sort((a, b) => b.maxWeeksLate - a.maxWeeksLate || b.totalRemaining - a.totalRemaining);
 
-  res.json({
+  return {
     clients: list,
     totalRemaining: round2(list.reduce((sum, c) => sum + c.totalRemaining, 0)),
     totalInstallments: list.reduce((sum, c) => sum + c.overdueCount, 0),
-  });
-});
+  };
+}

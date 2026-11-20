@@ -1,23 +1,28 @@
 import { Router } from 'express';
 import { requireAuth } from '../auth.js';
 import { pool } from '../db/client.js';
-import { addDays, arToday, loadInstallments, mondayOf, paidUntil, type InstallmentRow } from '../collections.js';
+import { addDays, arToday, cachedCollections, loadInstallmentsWindow, mondayOf, paidUntil, type InstallmentRow } from '../collections.js';
 
 export const goalsRouter = Router();
 
 const UPCOMING_WEEKS = 4;
+// Semanas cerradas que se muestran en el historial. Más atrás no se calcula: con el historial
+// de las cuentas corrientes cargado serían cientos de semanas por vendedor en cada refresco.
+const HISTORY_WEEKS = 12;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // El objetivo de un repartidor ya no se carga a mano: en cada semana es lo que le toca cobrar
 // de las cuotas de sus ventas — las que vencen esa semana más lo que arrastra sin cobrar de
 // semanas anteriores. Lo cobrado es lo aplicado a esas cuotas durante la semana.
-function weeksForCourier(installments: InstallmentRow[], today: string) {
+function weeksForCourier(installments: InstallmentRow[], today: string, historyStart: string) {
   const thisWeek = mondayOf(today);
   const dueWeeks = installments.map((i) => mondayOf(i.dueDate)).sort();
   const first = dueWeeks[0] ?? thisWeek;
   const last = [dueWeeks[dueWeeks.length - 1] ?? thisWeek, thisWeek].sort().pop()!;
   const lastShown = last < addDays(thisWeek, UPCOMING_WEEKS * 7) ? last : addDays(thisWeek, UPCOMING_WEEKS * 7);
-  const from = first < thisWeek ? first : thisWeek;
+  // Desde la primera semana con cuotas, pero nunca más atrás que el historial que se muestra.
+  const earliest = first < thisWeek ? first : thisWeek;
+  const from = earliest < historyStart ? historyStart : earliest;
 
   const weeks = [];
   for (let ws = from; ws <= lastShown; ws = addDays(ws, 7)) {
@@ -53,8 +58,14 @@ function weeksForCourier(installments: InstallmentRow[], today: string) {
 goalsRouter.get('/goals', requireAuth, async (req, res) => {
   // Repartidores y vendedores ven solo su objetivo.
   const courierId = req.user!.role !== 'admin' ? req.user!.sub : undefined;
-  const installments = await loadInstallments(courierId);
+  res.json({ couriers: await cachedCollections(`goals:${courierId ?? '*'}`, () => computeGoals(courierId)) });
+});
+
+async function computeGoals(courierId: string | undefined) {
   const today = arToday();
+  const thisWeek = mondayOf(today);
+  const historyStart = addDays(thisWeek, -HISTORY_WEEKS * 7);
+  const installments = await loadInstallmentsWindow(historyStart, addDays(thisWeek, (UPCOMING_WEEKS + 1) * 7), courierId);
 
   const byCourier = new Map<string, { name: string; list: InstallmentRow[] }>();
   for (const inst of installments) {
@@ -73,8 +84,8 @@ goalsRouter.get('/goals', requireAuth, async (req, res) => {
     .map(([id, { name, list }]) => ({
       courierId: id,
       courierName: name,
-      weeks: weeksForCourier(list, today),
+      weeks: weeksForCourier(list, today, historyStart),
     }))
     .sort((a, b) => a.courierName.localeCompare(b.courierName, 'es'));
-  res.json({ couriers });
-});
+  return couriers;
+}
