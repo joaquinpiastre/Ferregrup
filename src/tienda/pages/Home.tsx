@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowRight, BadgePercent, ChevronLeft, ChevronRight, Clock, CreditCard, Headphones, LayoutGrid, MapPin, MessageCircle, Store, Truck } from 'lucide-react';
 import { Link } from '../router';
 import { useStore } from '../context';
-import { BRANDS, CATEGORY_ICON, slugify, whatsappLink, type StoreProduct } from '../data';
+import { BRANDS, CATEGORY_ICON, categoryColor, slugify, whatsappLink, type StoreProduct } from '../data';
 import { Loading, ProductGrid, ProductImage, ProductRail, SectionHead } from '../ui';
 
 const ADDRESS = 'Av. Granaderos 575, San Rafael, Mendoza';
+const vars = (v: Record<string, string>) => v as CSSProperties;
 
 function pick(list: StoreProduct[], n: number) {
   return list.filter((p) => p.image).slice(0, n);
@@ -21,6 +22,17 @@ function mix(list: StoreProduct[]): StoreProduct[] {
   const out: StoreProduct[] = [];
   for (let i = 0; out.length < list.length; i++) for (const g of groups.values()) if (g[i]) out.push(g[i]);
   return out;
+}
+
+interface Slide {
+  key: string;
+  tone: 'teal' | 'red' | 'dark';
+  eyebrow: string;
+  title: ReactNode;
+  text: string;
+  cta: { to: string; label: string };
+  sticker: ReactNode;
+  images: StoreProduct[];
 }
 
 function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: number; maxOff: number }) {
@@ -43,10 +55,10 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
     ],
     3
   );
-  const slides = [
+  const slides: Slide[] = [
     {
       key: 'bateria',
-      tone: 'orange',
+      tone: 'teal',
       eyebrow: 'Herramientas a batería',
       title: (
         <>
@@ -55,13 +67,19 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
       ),
       text: 'Taladros, atornilladores, amoladoras y kits completos con batería y cargador de Total y Dowen Pagio.',
       cta: { to: '/categoria/herramientas-a-bateria', label: 'Ver herramientas a batería' },
+      sticker: (
+        <>
+          <b>{cuotas}</b>
+          <span>cuotas sin interés</span>
+        </>
+      ),
       images: batteryAll,
     },
     ...(offers.length
       ? [
           {
             key: 'ofertas',
-            tone: 'red',
+            tone: 'red' as const,
             eyebrow: 'Ofertas de la semana',
             title: (
               <>
@@ -70,6 +88,13 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
             ),
             text: `Precios especiales en herramientas de marcas líderes, también en ${cuotas} cuotas sin interés.`,
             cta: { to: '/ofertas', label: 'Ver todas las ofertas' },
+            sticker: (
+              <>
+                <span>hasta</span>
+                <b>{Math.round(maxOff)}%</b>
+                <span>OFF</span>
+              </>
+            ),
             images: offers,
           },
         ]
@@ -85,6 +110,12 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
       ),
       text: 'Hormigoneras y carretillas Duroll, andamios, escaleras y pinturas Andina para interior y exterior.',
       cta: { to: '/categoria/construccion-y-obra', label: 'Ver construcción y obra' },
+      sticker: (
+        <>
+          <b>Envío</b>
+          <span>a tu obra</span>
+        </>
+      ),
       images: obra,
     },
   ];
@@ -124,6 +155,7 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
                 <ProductImage product={p} />
               </Link>
             ))}
+            <span className="tn-hero-sticker">{s.sticker}</span>
           </div>
           <div className="tn-hero-nav">
             <button type="button" aria-label="Anterior" onClick={() => setI((x) => (x - 1 + slides.length) % slides.length)}>
@@ -144,6 +176,29 @@ function Hero({ products, cuotas, maxOff }: { products: StoreProduct[]; cuotas: 
   );
 }
 
+function Tile(props: { to: string; tone: string; chip: string; title: string; text: string; cta: string; images: StoreProduct[]; className?: string }) {
+  const { to, tone, chip, title, text, cta, images, className = '' } = props;
+  return (
+    <Link to={to} className={`tn-tile t-${tone} ${className}`}>
+      <div className="tn-tile-text">
+        <span className="tn-chip light">{chip}</span>
+        <h3>{title}</h3>
+        <p>{text}</p>
+        <span className="tn-tile-cta">
+          {cta} <ArrowRight size={15} />
+        </span>
+      </div>
+      <div className="tn-tile-art" aria-hidden="true">
+        {images.map((p) => (
+          <span key={p.code}>
+            <ProductImage product={p} />
+          </span>
+        ))}
+      </div>
+    </Link>
+  );
+}
+
 export default function Home() {
   const { catalog, error } = useStore();
   useEffect(() => {
@@ -159,11 +214,18 @@ export default function Home() {
     () => mix([...products.filter((p) => p.category === 'construccion-y-obra'), ...products.filter((p) => p.category === 'pinturas')]).slice(0, 14),
     [products]
   );
+  // La foto de cada rubro: su producto más vendible que tenga foto.
+  const coverOf = useMemo(() => {
+    const m = new Map<string, StoreProduct>();
+    for (const p of products) if (p.category && p.image && !m.has(p.category)) m.set(p.category, p);
+    return m;
+  }, [products]);
   const brandCount = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of products) if (p.brand) m.set(p.brand, (m.get(p.brand) ?? 0) + 1);
     return m;
   }, [products]);
+  const byCat = (slug: string, n: number, filter: (p: StoreProduct) => boolean = () => true) => pick(products.filter((p) => p.category === slug && filter(p)), n);
   const wa = whatsappLink(catalog?.settings.whatsapp ?? '5492604696700', 'Hola El Maná! Quería hacer una consulta.');
 
   if (error) {
@@ -176,10 +238,18 @@ export default function Home() {
 
   return (
     <>
-      {catalog ? <Hero products={products} cuotas={cuotas} maxOff={maxOff} /> : <div className="tn-hero-wrap"><div className="tn-wrap"><div className="tn-hero tn-skeleton" /></div></div>}
+      {catalog ? (
+        <Hero products={products} cuotas={cuotas} maxOff={maxOff} />
+      ) : (
+        <div className="tn-hero-wrap">
+          <div className="tn-wrap">
+            <div className="tn-hero tn-skeleton" />
+          </div>
+        </div>
+      )}
 
       <section className="tn-wrap tn-benefits">
-        <div className="tn-benefit">
+        <div className="tn-benefit b1">
           <span className="ic">
             <CreditCard size={22} />
           </span>
@@ -188,7 +258,7 @@ export default function Home() {
             <span>Con tarjetas de crédito</span>
           </div>
         </div>
-        <div className="tn-benefit">
+        <div className="tn-benefit b2">
           <span className="ic">
             <Truck size={22} />
           </span>
@@ -197,7 +267,7 @@ export default function Home() {
             <span>En San Rafael y alrededores</span>
           </div>
         </div>
-        <div className="tn-benefit">
+        <div className="tn-benefit b3">
           <span className="ic">
             <Store size={22} />
           </span>
@@ -206,7 +276,7 @@ export default function Home() {
             <span>Av. Granaderos 575</span>
           </div>
         </div>
-        <div className="tn-benefit">
+        <div className="tn-benefit b4">
           <span className="ic">
             <Headphones size={22} />
           </span>
@@ -230,13 +300,21 @@ export default function Home() {
         <div className="tn-cats">
           {(catalog?.categories ?? []).map((c) => {
             const Icon = CATEGORY_ICON[c.slug] ?? LayoutGrid;
+            const cover = coverOf.get(c.slug);
             return (
-              <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-cat">
+              <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-cat" style={vars({ '--c': categoryColor(c.slug) })}>
                 <span className="ic">
-                  <Icon size={26} />
+                  <Icon size={20} />
                 </span>
-                <b>{c.name}</b>
-                <small>{c.count} productos</small>
+                <span className="tn-cat-text">
+                  <b>{c.name}</b>
+                  <small>{c.count} productos</small>
+                </span>
+                {cover && (
+                  <span className="tn-cat-img" aria-hidden="true">
+                    <ProductImage product={cover} />
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -244,68 +322,86 @@ export default function Home() {
       </section>
 
       {offers.length > 0 && (
-        <section className="tn-wrap tn-sec">
-          <SectionHead
-            eyebrow="Ofertas"
-            title="Precios que no se repiten"
-            action={
-              <Link to="/ofertas" className="tn-link">
-                Ver todas <ArrowRight size={15} />
-              </Link>
-            }
-          />
-          <ProductRail products={offers.slice(0, 16)} />
+        <section className="tn-band tn-band-offers">
+          <div className="tn-wrap">
+            <SectionHead
+              eyebrow={`Hasta ${Math.round(maxOff)}% OFF`}
+              title="Ofertas que no se repiten"
+              action={
+                <Link to="/ofertas" className="tn-link light">
+                  Ver todas <ArrowRight size={15} />
+                </Link>
+              }
+            />
+            <ProductRail products={offers.slice(0, 16)} />
+          </div>
         </section>
       )}
 
-      <section className="tn-wrap tn-banners">
-        <Link to="/categoria/herramientas-electricas" className="tn-banner b1">
-          <div>
-            <span className="tn-chip light">Potencia profesional</span>
-            <h3>Herramientas eléctricas</h3>
-            <p>Taladros, rotomartillos, amoladoras y sierras para cada trabajo.</p>
-            <span className="tn-banner-cta">
-              Ver productos <ArrowRight size={16} />
-            </span>
-          </div>
-          <div className="tn-banner-art">{pick(products.filter((p) => p.category === 'herramientas-electricas' && p.featured), 2).map((p) => <ProductImage key={p.code} product={p} />)}</div>
-        </Link>
-        <Link to="/categoria/pinturas" className="tn-banner b2">
-          <div>
-            <span className="tn-chip light">Pinturas Andina</span>
-            <h3>Renová tus ambientes</h3>
-            <p>Látex, impermeabilizantes, esmaltes y fijadores para interior y exterior.</p>
-            <span className="tn-banner-cta">
-              Ver pinturas <ArrowRight size={16} />
-            </span>
-          </div>
-          <div className="tn-banner-art">{pick(products.filter((p) => p.brand === 'Andina' && /4 L/.test(p.name)), 2).map((p) => <ProductImage key={p.code} product={p} />)}</div>
-        </Link>
+      <section className="tn-wrap tn-bento">
+        <Tile
+          className="big"
+          to="/categoria/herramientas-electricas"
+          tone="orange"
+          chip="Potencia profesional"
+          title="Herramientas eléctricas"
+          text="Taladros, rotomartillos, amoladoras y sierras para cada trabajo."
+          cta="Ver productos"
+          images={byCat('herramientas-electricas', 2, (p) => p.featured || (p.rank ?? 1e9) < 60)}
+        />
+        <Tile to="/categoria/jardin-y-poda" tone="green" chip="Jardín y poda" title="Tu jardín, impecable" text="Bordeadoras, motosierras, cortadoras y tijeras." cta="Ver jardín" images={byCat('jardin-y-poda', 1)} />
+        <Tile to="/categoria/pinturas" tone="pink" chip="Pinturas Andina" title="Renová tus ambientes" text="Látex, membranas, esmaltes y fijadores." cta="Ver pinturas" images={byCat('pinturas', 1, (p) => /4 L/.test(p.name))} />
+        <Tile
+          className="wide"
+          to="/categoria/construccion-y-obra"
+          tone="amber"
+          chip="Construcción y obra"
+          title="Equipá tu obra"
+          text="Hormigoneras y carretillas Duroll, andamios y escaleras."
+          cta="Ver construcción"
+          images={pick(
+            [...products.filter((p) => p.brand === 'Duroll' && /hormigonera/i.test(p.name)), ...products.filter((p) => p.brand === 'Duroll' && /carretilla/i.test(p.name))],
+            2
+          )}
+        />
       </section>
 
-      <section className="tn-wrap tn-sec">
-        <SectionHead eyebrow="Los más elegidos" title="Lo que más se llevan nuestros clientes" />
-        {catalog ? <ProductGrid products={featured} /> : <Loading />}
+      <section className="tn-band tn-band-cream">
+        <div className="tn-wrap">
+          <SectionHead eyebrow="Los más elegidos" title="Lo que más se llevan nuestros clientes" />
+          {catalog ? <ProductGrid products={featured} /> : <Loading />}
+        </div>
       </section>
 
-      <section className="tn-sec tn-brands-sec">
+      <section className="tn-band tn-band-dark tn-brands-band">
         <div className="tn-wrap">
           <SectionHead eyebrow="Marcas" title="Trabajamos con marcas que rinden" />
-          <div className="tn-brands">
-            {BRANDS.map((b) => {
+        </div>
+        <div className="tn-marquee">
+          <div className="tn-marquee-track">
+            {[...BRANDS, ...BRANDS].map((b, k) => {
+              const copy = k >= BRANDS.length;
               const count = brandCount.get(b.name) ?? 0;
               const inner = (
                 <>
-                  <img src={b.logo} alt={b.name} loading="lazy" />
+                  <img src={b.logo} alt={copy ? '' : b.name} loading="lazy" />
                   <small>{count ? `${count} productos` : 'Consultanos'}</small>
                 </>
               );
               return count ? (
-                <Link key={b.name} to={`/marca/${slugify(b.name)}`} className="tn-brand" style={{ ['--tint' as string]: b.tint }}>
+                <Link key={k} to={`/marca/${slugify(b.name)}`} className="tn-brand" aria-hidden={copy || undefined} tabIndex={copy ? -1 : undefined}>
                   {inner}
                 </Link>
               ) : (
-                <a key={b.name} href={whatsappLink(catalog?.settings.whatsapp ?? '5492604696700', `Hola! Quería consultar por productos ${b.name}.`)} target="_blank" rel="noreferrer" className="tn-brand" style={{ ['--tint' as string]: b.tint }}>
+                <a
+                  key={k}
+                  href={whatsappLink(catalog?.settings.whatsapp ?? '5492604696700', `Hola! Quería consultar por productos ${b.name}.`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="tn-brand"
+                  aria-hidden={copy || undefined}
+                  tabIndex={copy ? -1 : undefined}
+                >
                   {inner}
                 </a>
               );
@@ -315,17 +411,19 @@ export default function Home() {
       </section>
 
       {battery.length > 0 && (
-        <section className="tn-wrap tn-sec">
-          <SectionHead
-            eyebrow="A batería"
-            title="Kits listos para trabajar"
-            action={
-              <Link to="/categoria/herramientas-a-bateria" className="tn-link">
-                Ver todos <ArrowRight size={15} />
-              </Link>
-            }
-          />
-          <ProductRail products={battery} />
+        <section className="tn-band tn-band-teal">
+          <div className="tn-wrap">
+            <SectionHead
+              eyebrow="A batería"
+              title="Kits listos para trabajar"
+              action={
+                <Link to="/categoria/herramientas-a-bateria" className="tn-link">
+                  Ver todos <ArrowRight size={15} />
+                </Link>
+              }
+            />
+            <ProductRail products={battery} />
+          </div>
         </section>
       )}
 
@@ -344,27 +442,35 @@ export default function Home() {
         </section>
       )}
 
-      <section className="tn-sec tn-why-sec">
+      <section className="tn-band tn-band-orange">
         <div className="tn-wrap">
           <SectionHead eyebrow="Por qué El Maná" title="Una distribuidora cercana, que responde" />
           <div className="tn-why">
             <div>
-              <BadgePercent size={26} />
+              <span className="ic">
+                <BadgePercent size={22} />
+              </span>
               <h3>Precios de distribuidora</h3>
               <p>Compramos directo a las marcas y lo trasladamos al precio, también en cuotas sin interés.</p>
             </div>
             <div>
-              <Headphones size={26} />
+              <span className="ic">
+                <Headphones size={22} />
+              </span>
               <h3>Te asesoramos de verdad</h3>
               <p>Te ayudamos a elegir lo que realmente necesitás, por WhatsApp o en el local.</p>
             </div>
             <div>
-              <Truck size={26} />
+              <span className="ic">
+                <Truck size={22} />
+              </span>
               <h3>Reparto propio</h3>
               <p>Nuestros repartidores recorren San Rafael y la zona: tu pedido llega sin vueltas.</p>
             </div>
             <div>
-              <Store size={26} />
+              <span className="ic">
+                <Store size={22} />
+              </span>
               <h3>Local a la calle</h3>
               <p>Pasá a retirar sin cargo o a ver los productos en Av. Granaderos 575.</p>
             </div>

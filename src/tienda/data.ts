@@ -180,6 +180,26 @@ export const CATEGORY_ICON: Record<string, LucideIcon> = {
   seguridad: ShieldCheck,
 };
 
+/** Color de cada rubro (íconos, tarjetas de categoría y encabezados de los listados). */
+export const CATEGORY_COLOR: Record<string, string> = {
+  'herramientas-electricas': '#f2550f',
+  'herramientas-a-bateria': '#0d9488',
+  'herramientas-de-mano': '#2563eb',
+  'accesorios-y-consumibles': '#7c3aed',
+  'jardin-y-poda': '#16a34a',
+  'construccion-y-obra': '#d97706',
+  pinturas: '#db2777',
+  'compresores-y-aire': '#0284c7',
+  'generadores-y-bombas': '#ca8a04',
+  soldadura: '#dc2626',
+  medicion: '#4f46e5',
+  'hidrolavadoras-y-limpieza': '#0891b2',
+  'taller-y-automotor': '#475569',
+  'cajas-y-almacenamiento': '#b45309',
+  seguridad: '#059669',
+};
+export const categoryColor = (slug: string | null | undefined) => (slug ? CATEGORY_COLOR[slug] : undefined) ?? '#fe4806';
+
 /** Búsqueda: todas las palabras, en cualquier orden, sin importar acentos ni mayúsculas. */
 export function searchProducts(products: StoreProduct[], q: string): StoreProduct[] {
   const words = normalize(q).split(/\s+/).filter(Boolean);

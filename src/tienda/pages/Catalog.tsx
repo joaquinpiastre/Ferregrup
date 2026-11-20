@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ChevronRight, SlidersHorizontal, X } from 'lucide-react';
 import { Link, navigate } from '../router';
 import { useStore } from '../context';
-import { BRANDS, CATEGORY_ICON, searchProducts, slugify, type StoreProduct } from '../data';
+import { BRANDS, CATEGORY_ICON, categoryColor, searchProducts, slugify, type StoreProduct } from '../data';
 import { Loading, ProductGrid } from '../ui';
 
 type Sort = 'destacados' | 'menor' | 'mayor' | 'nombre' | 'descuento';
@@ -47,18 +47,21 @@ export default function Catalog({ mode, slug, query }: Props) {
   const onlyOffers = mode === 'offers' || query.get('ofertas') === '1';
   const category = mode === 'category' ? slug ?? '' : query.get('cat') ?? '';
 
-  // Búsqueda y ofertas primero: de ahí salen las categorías disponibles (con su cantidad).
+  // Cada filtro cuenta con todos los demás aplicados (menos él mismo): así las cantidades de
+  // categorías y marcas coinciden con lo que aparece al tocarlas.
   const searched = useMemo(() => {
     let list = catalog?.products ?? [];
     if (q) list = searchProducts(list, q);
     if (onlyOffers) list = list.filter((p) => p.offerPct);
+    const range = PRICE_RANGES.find((r) => r.id === price);
+    if (range) list = list.filter((p) => p.price >= range.min && p.price < range.max);
     return list;
-  }, [catalog, q, onlyOffers]);
+  }, [catalog, q, onlyOffers, price]);
   const categoryCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const p of searched) if (p.category) m.set(p.category, (m.get(p.category) ?? 0) + 1);
+    for (const p of searched) if (p.category && (!brandParam || (p.brand && slugify(p.brand) === brandParam))) m.set(p.category, (m.get(p.category) ?? 0) + 1);
     return m;
-  }, [searched]);
+  }, [searched, brandParam]);
   const base = useMemo(() => (category ? searched.filter((p) => p.category === category) : searched), [searched, category]);
 
   const brands = useMemo(() => {
@@ -67,13 +70,10 @@ export default function Catalog({ mode, slug, query }: Props) {
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [base]);
 
-  const filtered = useMemo(() => {
-    let list = base;
-    if (brandParam) list = list.filter((p) => p.brand && slugify(p.brand) === brandParam);
-    const range = PRICE_RANGES.find((r) => r.id === price);
-    if (range) list = list.filter((p) => p.price >= range.min && p.price < range.max);
-    return sortProducts(list, sort);
-  }, [base, brandParam, price, sort]);
+  const filtered = useMemo(
+    () => sortProducts(brandParam ? base.filter((p) => !!p.brand && slugify(p.brand) === brandParam) : base, sort),
+    [base, brandParam, sort]
+  );
 
   const filterKey = `${mode}|${slug}|${query.toString()}`;
   const [page, setPage] = useState({ key: filterKey, n: PAGE });
@@ -157,109 +157,125 @@ export default function Catalog({ mode, slug, query }: Props) {
     mode !== 'offers' && query.get('ofertas') === '1' && { label: 'En oferta', clear: () => setParam('ofertas', null) },
   ].filter(Boolean) as { label: string; clear: () => void }[];
 
+  // Encabezado de color: el de la categoría, rojo para ofertas y oscuro para el resto.
+  const tone = mode === 'offers' ? 'offers' : mode === 'category' ? 'category' : 'dark';
+  const brandLogo = mode === 'brand' ? BRANDS.find((b) => slugify(b.name) === brandParam)?.logo : undefined;
+
   return (
-    <div className="tn-wrap tn-page">
-      <nav className="tn-crumbs" aria-label="Estás en">
-        <Link to="/">Inicio</Link>
-        <ChevronRight size={14} />
-        {mode === 'all' || mode === 'offers' ? <span>{title}</span> : (
-          <>
-            <Link to="/productos">Productos</Link>
+    <>
+      <div className={`tn-page-hero tone-${tone}`} style={{ '--c': categoryColor(category) } as CSSProperties}>
+        <div className="tn-wrap">
+          <nav className="tn-crumbs" aria-label="Estás en">
+            <Link to="/">Inicio</Link>
             <ChevronRight size={14} />
-            <span>{title}</span>
-          </>
-        )}
-      </nav>
-      <div className="tn-cat-head">
-        <div>
-          <h1>
-            {Icon && (
-              <span className="ic">
-                <Icon size={24} />
-              </span>
+            {mode === 'all' || mode === 'offers' ? <span>{title}</span> : (
+              <>
+                <Link to="/productos">Productos</Link>
+                <ChevronRight size={14} />
+                <span>{title}</span>
+              </>
             )}
-            {title}
-          </h1>
-          <p>{catalog ? `${filtered.length} ${filtered.length === 1 ? 'producto' : 'productos'}` : 'Cargando…'}</p>
-        </div>
-        <div className="tn-cat-tools">
-          <button type="button" className="tn-btn ghost tn-only-mobile" onClick={() => setFiltersOpen(true)}>
-            <SlidersHorizontal size={16} /> Filtros
-          </button>
-          <label className="tn-sort">
-            Ordenar
-            <select value={sort} onChange={(e) => setParam('orden', e.target.value === 'destacados' ? null : e.target.value)}>
-              {SORTS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-      {active.length > 0 && (
-        <div className="tn-active">
-          {active.map((a) => (
-            <button key={a.label} type="button" onClick={a.clear}>
-              {a.label} <X size={13} />
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="tn-cat-layout">
-        <aside className="tn-only-desktop">{filters}</aside>
-        <div>
-          {error ? (
-            <div className="tn-alert">{error}</div>
-          ) : !catalog ? (
-            <Loading />
-          ) : filtered.length === 0 ? (
-            <div className="tn-empty">
-              <h3>No encontramos productos con esos filtros.</h3>
-              <p>Probá con otras palabras o escribinos: seguro lo conseguimos.</p>
-              <Link to="/productos" className="tn-btn primary">
-                Ver todos los productos
-              </Link>
-            </div>
-          ) : (
-            <>
-              <ProductGrid products={filtered.slice(0, shown)} />
-              {filtered.length > shown && (
-                <div className="tn-more">
-                  <span>
-                    Mostrando {shown} de {filtered.length}
+          </nav>
+          <div className="tn-cat-head">
+            <div>
+              <h1>
+                {Icon && (
+                  <span className="ic">
+                    <Icon size={24} />
                   </span>
-                  <button type="button" className="tn-btn ghost" onClick={() => setPage({ key: filterKey, n: shown + PAGE })}>
-                    Ver más productos
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+                )}
+                {brandLogo ? (
+                  <span className="tn-hero-brand">
+                    <img src={brandLogo} alt={title} />
+                  </span>
+                ) : (
+                  title
+                )}
+              </h1>
+              <p>{catalog ? `${filtered.length} ${filtered.length === 1 ? 'producto' : 'productos'}` : 'Cargando…'}</p>
+            </div>
+            <div className="tn-cat-tools">
+              <button type="button" className="tn-btn ghost tn-only-mobile" onClick={() => setFiltersOpen(true)}>
+                <SlidersHorizontal size={16} /> Filtros
+              </button>
+              <label className="tn-sort">
+                Ordenar
+                <select value={sort} onChange={(e) => setParam('orden', e.target.value === 'destacados' ? null : e.target.value)}>
+                  {SORTS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
-      {filtersOpen && (
-        <div className="tn-drawer-bg" onClick={() => setFiltersOpen(false)}>
-          <aside className="tn-drawer left" onClick={(e) => e.stopPropagation()} aria-label="Filtros">
-            <div className="tn-drawer-head">
-              <strong>
-                <SlidersHorizontal size={18} /> Filtros
-              </strong>
-              <button type="button" className="tn-icon-btn" aria-label="Cerrar filtros" onClick={() => setFiltersOpen(false)}>
-                <X size={22} />
+      <div className="tn-wrap tn-page tn-page-list">
+        {active.length > 0 && (
+          <div className="tn-active">
+            {active.map((a) => (
+              <button key={a.label} type="button" onClick={a.clear}>
+                {a.label} <X size={13} />
               </button>
-            </div>
-            <div className="tn-drawer-body">{filters}</div>
-            <div className="tn-drawer-foot">
-              <button type="button" className="tn-btn primary block" onClick={() => setFiltersOpen(false)}>
-                Ver {filtered.length} productos
-              </button>
-            </div>
-          </aside>
+            ))}
+          </div>
+        )}
+        <div className="tn-cat-layout">
+          <aside className="tn-only-desktop">{filters}</aside>
+          <div>
+            {error ? (
+              <div className="tn-alert">{error}</div>
+            ) : !catalog ? (
+              <Loading />
+            ) : filtered.length === 0 ? (
+              <div className="tn-empty">
+                <h3>No encontramos productos con esos filtros.</h3>
+                <p>Probá con otras palabras o escribinos: seguro lo conseguimos.</p>
+                <Link to="/productos" className="tn-btn primary">
+                  Ver todos los productos
+                </Link>
+              </div>
+            ) : (
+              <>
+                <ProductGrid products={filtered.slice(0, shown)} />
+                {filtered.length > shown && (
+                  <div className="tn-more">
+                    <span>
+                      Mostrando {shown} de {filtered.length}
+                    </span>
+                    <button type="button" className="tn-btn ghost" onClick={() => setPage({ key: filterKey, n: shown + PAGE })}>
+                      Ver más productos
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      )}
-      {catalog && filtered.length > 0 && <p className="tn-legal">Precios finales con IVA incluido. Las imágenes son ilustrativas.</p>}
-    </div>
+        {filtersOpen && (
+          <div className="tn-drawer-bg" onClick={() => setFiltersOpen(false)}>
+            <aside className="tn-drawer left" onClick={(e) => e.stopPropagation()} aria-label="Filtros">
+              <div className="tn-drawer-head">
+                <strong>
+                  <SlidersHorizontal size={18} /> Filtros
+                </strong>
+                <button type="button" className="tn-icon-btn" aria-label="Cerrar filtros" onClick={() => setFiltersOpen(false)}>
+                  <X size={22} />
+                </button>
+              </div>
+              <div className="tn-drawer-body">{filters}</div>
+              <div className="tn-drawer-foot">
+                <button type="button" className="tn-btn primary block" onClick={() => setFiltersOpen(false)}>
+                  Ver {filtered.length} productos
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
+        {catalog && filtered.length > 0 && <p className="tn-legal">Precios finales con IVA incluido. Las imágenes son ilustrativas.</p>}
+      </div>
+    </>
   );
 }

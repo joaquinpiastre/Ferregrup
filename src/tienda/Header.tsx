@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ChevronDown, LayoutGrid, LogIn, Menu, MessageCircle, Search, ShoppingCart, Tag, X } from 'lucide-react';
 import { Link, navigate } from './router';
 import { useCart } from './cart';
 import { useStore } from './context';
-import { CATEGORY_ICON, money, searchProducts, whatsappLink } from './data';
+import { CATEGORY_ICON, categoryColor, money, searchProducts, whatsappLink } from './data';
 import { ProductImage } from './ui';
 
 const QUICK = [
@@ -186,7 +186,7 @@ export default function Header() {
               {categories.map((c) => {
                 const Icon = CATEGORY_ICON[c.slug] ?? LayoutGrid;
                 return (
-                  <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-mega-item" onClick={() => setMega(false)}>
+                  <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-mega-item" style={{ '--c': categoryColor(c.slug) } as CSSProperties} onClick={() => setMega(false)}>
                     <span className="ic">
                       <Icon size={18} />
                     </span>
@@ -222,7 +222,7 @@ export default function Header() {
               {categories.map((c) => {
                 const Icon = CATEGORY_ICON[c.slug] ?? LayoutGrid;
                 return (
-                  <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-menu-item" onClick={() => setMenu(false)}>
+                  <Link key={c.slug} to={`/categoria/${c.slug}`} className="tn-menu-item" style={{ '--c': categoryColor(c.slug) } as CSSProperties} onClick={() => setMenu(false)}>
                     <Icon size={18} /> {c.name}
                     <small>{c.count}</small>
                   </Link>

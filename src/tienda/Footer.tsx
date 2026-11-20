@@ -1,4 +1,4 @@
-import { Clock, CreditCard, Landmark, MapPin, MessageCircle, Phone, Store, Truck, Wallet } from 'lucide-react';
+import { Clock, CreditCard, Landmark, MapPin, MessageCircle, Phone, Search, Store, Truck, Wallet } from 'lucide-react';
 import { Link } from './router';
 import { useStore } from './context';
 import { whatsappLink } from './data';
@@ -8,9 +8,24 @@ export default function Footer() {
   const phone = catalog?.settings.whatsapp ?? '5492604696700';
   const n = catalog?.settings.cuotas ?? 3;
   const wa = whatsappLink(phone, 'Hola El Maná! Quería hacer una consulta.');
+  const ask = whatsappLink(phone, 'Hola El Maná! Estoy buscando un producto que no encontré en la tienda:');
   const categories = (catalog?.categories ?? []).slice(0, 8);
   return (
     <footer className="tn-footer">
+      <div className="tn-cta">
+        <div className="tn-wrap tn-cta-in">
+          <span className="tn-cta-ic" aria-hidden="true">
+            <Search size={26} />
+          </span>
+          <div className="tn-cta-text">
+            <h3>¿No encontrás lo que buscás?</h3>
+            <p>En el local tenemos miles de productos más. Contanos qué necesitás y te lo conseguimos.</p>
+          </div>
+          <a className="tn-btn wa lg" href={ask} target="_blank" rel="noreferrer">
+            <MessageCircle size={19} /> Preguntanos por WhatsApp
+          </a>
+        </div>
+      </div>
       <div className="tn-wrap tn-foot-grid">
         <div className="tn-foot-brand">
           <img src="/mana-logo.png" alt="El Maná Distribuidora" width={170} height={53} loading="lazy" />

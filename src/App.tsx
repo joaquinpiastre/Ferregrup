@@ -29,7 +29,7 @@ export default function App() {
     );
   }
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f6f5f2' }} />}>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f4efe8' }} />}>
       <TiendaApp />
     </Suspense>
   );

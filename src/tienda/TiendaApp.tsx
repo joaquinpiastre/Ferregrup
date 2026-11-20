@@ -52,7 +52,7 @@ export default function TiendaApp() {
   // El panel usa fondo oscuro en el body: la tienda es clara.
   useEffect(() => {
     const prev = document.body.style.background;
-    document.body.style.background = '#f6f5f2';
+    document.body.style.background = '#f4efe8';
     return () => {
       document.body.style.background = prev;
     };
