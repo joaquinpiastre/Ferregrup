@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes, AlertTriangle, Truck, Sparkles, Bot } from 'lucide-react';
+import { Send, MapPin, CalendarClock, Map, History, UserCheck, Package, UserCog, Radio, Wallet, Banknote, ShoppingCart, Target, Building2, ScrollText, FileText, BarChart3, Boxes, AlertTriangle, Truck, Sparkles, Bot, ShoppingBag, Store, Settings2 } from 'lucide-react';
 import AppSidebar from '../../components/AppSidebar';
 import type { SidebarSection } from '../../components/AppSidebar';
-import { fetchStreetOrders, subscribeStreetOrders } from '../api';
+import { fetchStreetOrders, subscribeNewWebOrders, subscribeStreetOrders } from '../api';
 import PedidosCalleActivos from './PedidosCalleActivos';
 import PedidosCalleHistorial from './PedidosCalleHistorial';
 import RutasPanel from './RutasPanel';
@@ -26,6 +26,7 @@ import ProveedoresPanel from './ProveedoresPanel';
 import LogsPanel from './LogsPanel';
 import IAPanel from './IAPanel';
 import AsistentePanel from '../shared/AsistentePanel';
+import { AjustesTiendaPanel, PedidosWebPanel, ProductosWebPanel, VerTiendaLink } from './TiendaPanel';
 import type { Session, StreetOrder } from '../types';
 
 interface Props {
@@ -38,9 +39,10 @@ type Section =
   | 'clientes' | 'catalogo' | 'stock' | 'camioneta'
   | 'equipo' | 'trackers'
   | 'estadisticas' | 'cobros' | 'atrasados' | 'cuentas' | 'ventas' | 'cotizaciones' | 'objetivos' | 'proveedores'
-  | 'logs' | 'asistente' | 'ia';
+  | 'logs' | 'asistente' | 'ia'
+  | 'web-pedidos' | 'web-productos' | 'web-ajustes';
 
-const sections: SidebarSection[] = [
+const buildSections = (newWebOrders: number): SidebarSection[] => [
   {
     links: [{ id: 'asistente', label: 'Asistente IA', icon: Sparkles }],
   },
@@ -52,6 +54,14 @@ const sections: SidebarSection[] = [
       { id: 'planificacion', label: 'Planificación', icon: CalendarClock },
       { id: 'mapa', label: 'Mapa en vivo', icon: Map },
       { id: 'historial', label: 'Historial', icon: History },
+    ],
+  },
+  {
+    label: 'Tienda online',
+    links: [
+      { id: 'web-pedidos', label: 'Pedidos web', icon: ShoppingBag, badge: newWebOrders },
+      { id: 'web-productos', label: 'Productos en la web', icon: Store },
+      { id: 'web-ajustes', label: 'Ajustes de la tienda', icon: Settings2 },
     ],
   },
   {
@@ -92,6 +102,10 @@ export default function AdminShell({ session, onLogout }: Props) {
   const [pedidosTab, setPedidosTab] = useState<'activos' | 'historial'>('activos');
   const [orders, setOrders] = useState<StreetOrder[]>([]);
   const [error, setError] = useState('');
+  const [newWebOrders, setNewWebOrders] = useState(0);
+  const sections = buildSections(newWebOrders);
+
+  useEffect(() => subscribeNewWebOrders(session.token, setNewWebOrders), [session.token]);
 
   useEffect(
     () => subscribeStreetOrders(session.token, (list) => { setOrders(list); setError(''); }, (e) => setError(e instanceof Error ? e.message : 'Error de conexión.')),
@@ -121,6 +135,7 @@ export default function AdminShell({ session, onLogout }: Props) {
                 {sections.flatMap((s) => s.links).find((l) => l.id === section)?.label}
               </h1>
             </div>
+            {section.startsWith('web-') && <VerTiendaLink />}
             {section === 'pedidos' && (
               <div style={{ display: 'flex', gap: 4 }}>
                 <button className={pedidosTab === 'activos' ? 'btn-primary' : 'btn-secondary'} style={{ padding: '6px 14px', fontSize: 12 }} onClick={() => setPedidosTab('activos')}>Activos</button>
@@ -155,6 +170,9 @@ export default function AdminShell({ session, onLogout }: Props) {
           {section === 'logs' && <LogsPanel token={session.token} />}
           {section === 'asistente' && <AsistentePanel session={session} />}
           {section === 'ia' && <IAPanel token={session.token} />}
+          {section === 'web-pedidos' && <PedidosWebPanel token={session.token} />}
+          {section === 'web-productos' && <ProductosWebPanel token={session.token} />}
+          {section === 'web-ajustes' && <AjustesTiendaPanel token={session.token} />}
         </div>
       </main>
     </div>

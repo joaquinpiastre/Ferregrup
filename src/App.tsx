@@ -1,25 +1,49 @@
-import { useState } from 'react';
-import LoginScreen from './reparto/LoginScreen';
-import Landing from './landing/Landing';
-import AdminShell from './reparto/admin/AdminShell';
-import RepartidorShell from './reparto/repartidor/RepartidorShell';
-import VendedorShell from './reparto/vendedor/VendedorShell';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { useLocation, navigate } from './tienda/router';
 import { apiEnabled, loadSession, saveSession } from './reparto/api';
 import type { Session } from './reparto/types';
 import './index.css';
 
+// Cada parte se descarga recién cuando se usa: quien entra a la tienda no baja el código del panel
+// (mapas, gráficos, PDF) y el repartidor que abre el panel no baja la tienda.
+const TiendaApp = lazy(() => import('./tienda/TiendaApp'));
+const LoginScreen = lazy(() => import('./reparto/LoginScreen'));
+const AdminShell = lazy(() => import('./reparto/admin/AdminShell'));
+const RepartidorShell = lazy(() => import('./reparto/repartidor/RepartidorShell'));
+const VendedorShell = lazy(() => import('./reparto/vendedor/VendedorShell'));
+
+// El sitio público es la tienda online y el sistema de gestión vive en /panel. Quien ya tiene la
+// sesión del panel abierta y abre la raíz va directo al panel (así los repartidores siguen entrando
+// como siempre); solo pasa al abrir la página, no al navegar dentro de la tienda.
+if (window.location.pathname === '/' && loadSession()) window.history.replaceState(null, '', '/panel');
+
 export default function App() {
+  const { path } = useLocation();
   const [session, setSession] = useState<Session | null>(() => loadSession());
-  const [showLogin, setShowLogin] = useState(false);
+
+  if (path === '/panel' || path.startsWith('/panel/')) {
+    return (
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: '#111' }} />}>
+        <Panel session={session} setSession={setSession} />
+      </Suspense>
+    );
+  }
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#f6f5f2' }} />}>
+      <TiendaApp />
+    </Suspense>
+  );
+}
+
+function Panel({ session, setSession }: { session: Session | null; setSession: (s: Session | null) => void }) {
+  useEffect(() => {
+    document.title = 'El Maná — Sistema de Gestión';
+  }, []);
 
   function handleLogout() {
     saveSession(null);
     setSession(null);
-    setShowLogin(false);
-  }
-
-  if (!session && !showLogin) {
-    return <Landing hasSession={false} onEnterPanel={() => setShowLogin(true)} />;
+    navigate('/');
   }
 
   if (!apiEnabled()) {
@@ -37,16 +61,18 @@ export default function App() {
   }
 
   if (!session) {
-    return <LoginScreen onLogin={(s) => { saveSession(s); setSession(s); }} onBack={() => setShowLogin(false)} />;
+    return (
+      <LoginScreen
+        onLogin={(s) => {
+          saveSession(s);
+          setSession(s);
+        }}
+        onBack={() => navigate('/')}
+      />
+    );
   }
 
-  if (session.staff.role === 'admin') {
-    return <AdminShell session={session} onLogout={handleLogout} />;
-  }
-
-  if (session.staff.role === 'vendedor') {
-    return <VendedorShell session={session} onLogout={handleLogout} />;
-  }
-
+  if (session.staff.role === 'admin') return <AdminShell session={session} onLogout={handleLogout} />;
+  if (session.staff.role === 'vendedor') return <VendedorShell session={session} onLogout={handleLogout} />;
   return <RepartidorShell session={session} onLogout={handleLogout} />;
 }

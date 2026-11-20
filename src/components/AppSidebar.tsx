@@ -6,6 +6,8 @@ export interface SidebarLink {
   id: string;
   label: string;
   icon: LucideIcon;
+  /** Número que llama la atención (por ejemplo, pedidos nuevos); 0 o vacío no muestra nada. */
+  badge?: number;
 }
 
 export interface SidebarSection {
@@ -52,12 +54,13 @@ export default function AppSidebar({
     setExpanded((prev) => (prev === groupIndex ? null : groupIndex));
   }
 
-  const renderLink = ({ id, label, icon: Icon }: SidebarLink, groupIndex: number) => {
+  const renderLink = ({ id, label, icon: Icon, badge }: SidebarLink, groupIndex: number) => {
     const active = activeId === id;
     return (
       <button key={id} className={`nav-link${active ? ' active' : ''}`} onClick={() => navigate(id, groupIndex)}>
         <Icon size={15} />
         {label}
+        {!!badge && <span className="nav-badge">{badge}</span>}
       </button>
     );
   };
@@ -103,7 +106,12 @@ export default function AppSidebar({
                 >
                   <ChevronRight size={12} className="nav-group-chevron" style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }} />
                   <span style={{ flex: 1 }}>{section.label}</span>
-                  {!isOpen && <span className="nav-group-count">{section.links.length}</span>}
+                  {!isOpen &&
+                    (section.links.some((l) => l.badge) ? (
+                      <span className="nav-badge">{section.links.reduce((n, l) => n + (l.badge ?? 0), 0)}</span>
+                    ) : (
+                      <span className="nav-group-count">{section.links.length}</span>
+                    ))}
                 </button>
                 {isOpen && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '1px 0 6px' }}>

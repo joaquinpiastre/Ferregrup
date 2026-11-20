@@ -452,3 +452,60 @@ create table if not exists uploaded_files (
 );
 
 create index if not exists idx_uploaded_files_staff on uploaded_files (staff_id, created_at_ms desc);
+
+-- ─── Tienda online (distribuidoraelmana.com.ar) ─────────────────────────────────
+-- Qué productos del catálogo se publican y cómo se muestran. El precio es siempre el del
+-- catálogo (unit_price): si se actualiza la lista del proveedor, la tienda se actualiza sola.
+alter table catalog_products add column if not exists web_published boolean not null default false;
+alter table catalog_products add column if not exists web_name text;
+alter table catalog_products add column if not exists web_brand text;
+alter table catalog_products add column if not exists web_category text;
+alter table catalog_products add column if not exists web_offer_pct numeric(5,2);
+alter table catalog_products add column if not exists web_featured boolean not null default false;
+alter table catalog_products add column if not exists web_rank integer;
+create index if not exists idx_catalog_web_published on catalog_products (web_published) where web_published;
+
+-- Fotos de los productos de la tienda (en la base: el disco del servidor no sobrevive a un despliegue).
+create table if not exists web_images (
+  id bigserial primary key,
+  code text not null unique,
+  mime text not null,
+  data bytea not null,
+  updated_at_ms bigint not null
+);
+
+-- Pedidos que entran por la tienda. No hay pago online: se coordina por WhatsApp.
+create table if not exists web_orders (
+  id bigserial primary key,
+  status text not null default 'nuevo' check (status in ('nuevo', 'confirmado', 'preparando', 'enviado', 'entregado', 'cancelado')),
+  customer_name text not null,
+  customer_phone text not null,
+  customer_email text,
+  delivery text not null check (delivery in ('envio', 'retiro')),
+  address text,
+  city text,
+  payment text not null check (payment in ('tarjeta', 'transferencia', 'efectivo')),
+  notes text,
+  items json not null,
+  subtotal numeric(12,2) not null,
+  discount numeric(12,2) not null default 0,
+  total numeric(12,2) not null,
+  ip text,
+  admin_notes text,
+  created_at_ms bigint not null,
+  updated_at_ms bigint not null
+);
+
+create index if not exists idx_web_orders_created on web_orders (created_at_ms desc);
+
+-- Ajustes de la tienda (una sola fila).
+create table if not exists web_settings (
+  id integer primary key default 1 check (id = 1),
+  cuotas integer not null default 3,
+  transfer_pct numeric(5,2) not null default 0,
+  whatsapp text not null default '5492604696700',
+  shipping_note text not null default 'Envío a domicilio en San Rafael y alrededores. Retiro sin cargo en Av. Granaderos 575.',
+  updated_at_ms bigint
+);
+
+insert into web_settings (id) values (1) on conflict (id) do nothing;

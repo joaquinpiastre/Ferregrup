@@ -1,10 +1,10 @@
 # Ferregrup
 
-Sistema de gestión de reparto para ferretería (React + TypeScript + Vite + backend propio en Express/Postgres). Todo vive en el backend porque necesita sincronizar datos entre el celular del repartidor y la PC del mostrador.
+Sistema de gestión de reparto para ferretería (React + TypeScript + Vite + backend propio en Express/Postgres), más la tienda online pública del negocio. Todo vive en el backend porque necesita sincronizar datos entre el celular del repartidor y la PC del mostrador.
 
 ## Roles y login
 
-Toda la app está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend). Hay tres roles:
+El sistema de gestión (`/panel`) está detrás de un login único (PIN de 4 dígitos, tabla `staff` en el backend); la raíz del sitio es la tienda online (ver más abajo). Hay tres roles:
 
 - **`admin`** — el panel del administrador/mostrador, con todo el negocio: Pedidos en calle (activos + historial), Rutas del día (asignar clientes a un repartidor, ver progreso, reordenar), Planificación (listas semanales recurrentes con repartidor fijo), Mapa en vivo, Historial (turnos cerrados, con el detalle de cada parada), Clientes, Catálogo, **Cuentas de clientes** (saldo y detalle de movimientos de cada cliente), **Cobros** (con filtro semanal y recibo imprimible/PDF), **Ventas** (cargar ventas a cuenta de un cliente, asignadas a un repartidor), **Atrasados** (clientes con cuotas vencidas sin cobrar), **Objetivos** (cuotas a cobrar por semana de cada repartidor, con historial), **Proveedores** (deudas con proveedores, fechas, factura y pago por ECHEQ), Equipo (alta/baja de usuarios), **Actividad** (log de auditoría de qué hizo cada usuario), **Asistente IA** e **Inteligencia artificial** (configuración y gastos de la IA; ver más abajo).
 - **`repartidor`** — panel del repartidor: inicio con turno (iniciar/terminar) y sus barras de objetivo semanal/mensual, mi ruta del día (navegar por Google Maps, marcar visitado/problema), pedido en la calle, clientes, catálogo, cobros (ve el saldo del cliente antes de cobrar y puede imprimir/descargar el recibo).
@@ -72,6 +72,16 @@ Cada usuario (admin y repartidor) tiene su **Asistente IA** en el menú: un chat
 - **Configuración**: la API key va en la variable de entorno `ANTHROPIC_API_KEY` del servicio `ferregrup-api` en Railway (nunca llega al navegador). Sin ella el resto del sistema funciona igual y el asistente avisa que falta configurarlo. El botón "Probar conexión" verifica la clave y qué modelos tiene disponibles la cuenta.
 - **Costos**: se registra el costo de cada llamada en `ai_usage` (aunque se borre el chat) y el asistente se corta al llegar al límite. El historial se guarda tal cual se manda a la API (columna `json`, no `jsonb`, para no reordenar claves) y solo se le agregan mensajes: así el caché de prompts abarata las conversaciones largas.
 
+### Tienda online
+
+El sitio público (`https://distribuidoraelmana.com.ar`) es una tienda online y el sistema de gestión pasó a `/panel`. Quien ya tiene la sesión del panel abierta y abre la raíz va directo al panel (los repartidores siguen entrando como siempre); el resto ve la tienda. El código de la tienda está en `src/tienda/` (sin dependencias nuevas: navegación con la History API y carrito guardado en el navegador) y su backend en `server/src/routes/store.ts`. La tienda y el panel se descargan por separado (`React.lazy`), así quien compra no baja el código del panel.
+
+- **Qué se publica**: los productos del catálogo marcados como publicados, con nombre para la web, marca, categoría, orden, destacado y oferta (%) propios (columnas `web_*` de `catalog_products`). El precio es siempre el precio de venta del catálogo (con IVA); la oferta se aplica encima y se redondea al peso. Si cambia el precio en el catálogo o un producto se da de baja, la tienda lo refleja sola.
+- **Fotos**: tabla `web_images` (la imagen en la base), servidas por `GET /store/img/:id` con caché larga (la URL lleva la versión). En producción pasan por Vercel (`/img/...`, ver `vercel.json`). Las que se suben desde el panel se achican antes en el navegador (WebP, 1000 px).
+- **Pedidos**: `POST /store/orders` es público; recalcula los precios en el servidor (nunca toma los del navegador), tiene un campo trampa para robots y un límite de pedidos por conexión. No hay pasarela de pago: el pedido queda en **Tienda online → Pedidos web** y el pago y la entrega se coordinan por WhatsApp.
+- **Panel (solo admin)**: **Tienda online → Pedidos web** (estados, nota interna y link de WhatsApp al cliente; el menú avisa cuántos pedidos nuevos hay), **Productos en la web** (buscar en todo el catálogo, publicar o sacar, nombre, marca, categoría, oferta, destacado y foto) y **Ajustes de la tienda** (cuotas sin interés que se muestran, descuento por transferencia, WhatsApp y texto de envíos). Cada cambio queda en **Actividad**.
+- **Información al consumidor**: cada producto muestra el precio sin impuestos nacionales (Ley 27.743), el CFT y la TEA de las cuotas, y el sitio tiene el Botón de arrepentimiento (Res. 424/2020) y el link a Defensa del Consumidor.
+
 ### Qué se dejó afuera a propósito
 
 Se tomó como referencia la app real de reparto de la pinturería (Expo + Express, carpeta `App Del Centro/delcentro-app` en esta misma compu) pero no se portó todo:
@@ -86,7 +96,7 @@ Cualquiera de estos se puede sumar después si hace falta.
 ## Backend de reparto
 
 - Backend: `server/` — ver `server/package.json` para los scripts (`dev`, `build`, `migrate`, `seed`).
-- Frontend: `src/reparto/` (`admin/` y `repartidor/` para las pantallas de cada rol, `shared/` para lo que comparten como Clientes y Catálogo).
+- Frontend: `src/reparto/` (`admin/` y `repartidor/` para las pantallas de cada rol, `shared/` para lo que comparten como Clientes y Catálogo) y `src/tienda/` (la tienda online).
 - Variable de entorno del frontend: `VITE_API_URL` (ver `.env.example`) apuntando a la URL del backend.
 
 ## Despliegue

@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/img/:id", "destination": "https://ferregrup-api-production.up.railway.app/store/img/:id" },
+    { "source": "/((?!assets/|img/).*)", "destination": "/index.html" }
+  ]
+}

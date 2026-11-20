@@ -39,6 +39,12 @@ import type {
   VanItem,
   VanMovement,
   VanMovementKind,
+  WebCategory,
+  WebOrder,
+  WebOrderStatus,
+  WebProduct,
+  WebProductPatch,
+  WebSettings,
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
@@ -673,4 +679,57 @@ export async function saveAiUserSettings(
 
 export async function testAiConnection(token: string): Promise<{ ok: boolean; error?: string; models?: { id: string; available: boolean }[] }> {
   return request('/ai/admin/test', { method: 'POST' }, token);
+}
+
+// ─── Tienda online ──────────────────────────────────────────────────────────
+
+export async function fetchWebOrders(token: string): Promise<WebOrder[]> {
+  const { orders } = await request<{ orders: WebOrder[] }>('/store/admin/orders', {}, token);
+  return orders;
+}
+
+export function subscribeWebOrders(token: string, onChange: (orders: WebOrder[]) => void, onError?: (err: unknown) => void): () => void {
+  return poll(() => fetchWebOrders(token), onChange, onError);
+}
+
+/** Cantidad de pedidos web sin atender (para el aviso del menú). */
+export function subscribeNewWebOrders(token: string, onChange: (count: number) => void): () => void {
+  return poll(() => request<{ newOrders: number }>('/store/admin/summary', {}, token).then((r) => r.newOrders), onChange);
+}
+
+export async function updateWebOrder(token: string, id: number, patch: { status?: WebOrderStatus; adminNotes?: string | null }): Promise<void> {
+  await request(`/store/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }, token);
+}
+
+export async function fetchWebProducts(token: string, q: string, only: 'published' | 'all'): Promise<{ categories: WebCategory[]; products: WebProduct[] }> {
+  return request(`/store/admin/products?${new URLSearchParams({ q, only })}`, {}, token);
+}
+
+export async function updateWebProduct(token: string, code: string, patch: WebProductPatch): Promise<void> {
+  await request(`/store/admin/products/${encodeURIComponent(code)}`, { method: 'PATCH', body: JSON.stringify(patch) }, token);
+}
+
+/** Sube la foto de un producto de la tienda (ya achicada en el navegador). */
+export async function uploadWebProductImage(token: string, code: string, image: Blob): Promise<void> {
+  if (!API_URL) throw new Error('El servidor de reparto no está configurado (falta VITE_API_URL).');
+  const form = new FormData();
+  form.append('image', image, image.type === 'image/webp' ? 'foto.webp' : image.type === 'image/png' ? 'foto.png' : 'foto.jpg');
+  const res = await fetch(`${API_URL}/store/admin/products/${encodeURIComponent(code)}/image`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    if (res.status === 401) expireSession();
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `Error ${res.status}`);
+  }
+}
+
+export async function fetchWebSettings(token: string): Promise<WebSettings> {
+  return request<WebSettings>('/store/admin/settings', {}, token);
+}
+
+export async function saveWebSettings(token: string, settings: WebSettings): Promise<void> {
+  await request('/store/admin/settings', { method: 'PUT', body: JSON.stringify(settings) }, token);
 }

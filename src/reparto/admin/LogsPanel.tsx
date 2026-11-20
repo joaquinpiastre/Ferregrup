@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollText, LogIn, UserCog, Banknote, ShoppingCart, Target, Truck, Package, Building2 } from 'lucide-react';
+import { ScrollText, LogIn, UserCog, Banknote, ShoppingCart, Target, Truck, Package, Building2, Store } from 'lucide-react';
 import { fetchStaffList, subscribeLogs } from '../api';
 import type { ActivityLogEntry, Staff } from '../types';
 
@@ -30,6 +30,9 @@ const ACTION_ICON: Record<string, typeof LogIn> = {
   'supplier_debt.create': Building2,
   'supplier_debt.pay': Building2,
   'supplier_debt.delete': Building2,
+  'store.order': Store,
+  'store.product': Store,
+  'store.settings': Store,
 };
 
 export default function LogsPanel({ token }: Props) {

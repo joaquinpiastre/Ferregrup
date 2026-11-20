@@ -26,6 +26,7 @@ import { vanRouter } from './routes/van.js';
 import { aiRouter } from './routes/ai.js';
 import { filesRouter } from './routes/files.js';
 import { supplierListsRouter } from './routes/supplierLists.js';
+import { storeRouter } from './routes/store.js';
 import { startGt06Server } from './gpsTracker/gt06.js';
 
 // Las rutas son async sin try/catch; en Express 4 un error ahí es una promesa
@@ -76,6 +77,7 @@ for (const router of [
   clientsRouter,
   catalogRouter,
   supplierListsRouter,
+  storeRouter,
   filesRouter,
   routeStopsRouter,
   shiftsRouter,

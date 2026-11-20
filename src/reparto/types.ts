@@ -502,3 +502,72 @@ export interface AiOverview {
   totals: { spentUsd: number; spentPrevUsd: number };
   byModel: { model: string; name: string; costUsd: number; calls: number; inputTokens: number; outputTokens: number }[];
 }
+
+// ─── Tienda online ──────────────────────────────────────────────────────────
+
+export type WebOrderStatus = 'nuevo' | 'confirmado' | 'preparando' | 'enviado' | 'entregado' | 'cancelado';
+
+export interface WebOrderItem {
+  code: string;
+  name: string;
+  qty: number;
+  unitPrice: number;
+  subtotal: number;
+}
+
+export interface WebOrder {
+  id: number;
+  status: WebOrderStatus;
+  name: string;
+  phone: string;
+  email: string | null;
+  delivery: 'envio' | 'retiro';
+  address: string | null;
+  city: string | null;
+  payment: 'tarjeta' | 'transferencia' | 'efectivo';
+  notes: string | null;
+  items: WebOrderItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  adminNotes: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WebProduct {
+  code: string;
+  description: string;
+  webName: string | null;
+  brand: string | null;
+  category: string | null;
+  published: boolean;
+  offerPct: number | null;
+  featured: boolean;
+  rank: number | null;
+  price: number;
+  supplier: string | null;
+  image: string | null;
+}
+
+export interface WebCategory {
+  slug: string;
+  name: string;
+}
+
+export interface WebSettings {
+  cuotas: number;
+  transferPct: number;
+  whatsapp: string;
+  shippingNote: string;
+}
+
+export type WebProductPatch = Partial<{
+  published: boolean;
+  name: string | null;
+  brand: string | null;
+  category: string | null;
+  offerPct: number | null;
+  featured: boolean;
+  rank: number | null;
+}>;
