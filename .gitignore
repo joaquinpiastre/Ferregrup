@@ -40,3 +40,6 @@ server/tsconfig.tsbuildinfo
 
 # Cuentas corrientes de clientes (planillas, informe de importación, backups): no van al repo
 CUENTA_CORRIENTE/
+
+# Listas de proveedores y archivos para armar el catálogo (costos del negocio): no van al repo
+Catalogo/

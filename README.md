@@ -39,9 +39,20 @@ El **mapa en vivo** (panel admin) funciona hoy por navegador: mientras el repart
 
 El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (`server/src/gpsTracker/gt06.ts`, pantalla admin → Trackers) pero el servidor TCP que habla ese protocolo **está deshabilitado en producción por ahora**: al ponerlo en el mismo servicio de Railway que sirve la API HTTP, el proxy TCP que Railway arma para exponerlo entró en conflicto con el puerto de la propia API y tumbó todo el backend un rato. Para reactivarlo correctamente hay que correr ese listener en un servicio de Railway aparte (con su propio proxy TCP), no en `ferregrup-api`. Mientras tanto, la sección Trackers del panel admin sigue funcionando para registrar IMEIs, pero ningún dispositivo real puede conectarse todavía.
 
+### Catálogo: costo, IVA y precio de venta
+
+Cada producto tiene **precio de venta** (final, con IVA: es lo que ven y cobran repartidores y vendedores), **IVA** y **costo sin IVA** (como viene en la lista del proveedor). El costo solo lo ve el admin (la API no lo manda a otros roles, y el asistente de IA tampoco lo muestra). En Catálogo el admin ve además el **costo con IVA** (costo × (1 + IVA)) y la **ganancia** en %, medida contra el costo con IVA.
+
+El 19/11/2026 se cargó el catálogo con la lista de **Dowen Pagio / BTA** (`f-lista-de-precios-vigente.xls`, hoja "Lista Precios General", 2.900 productos) con esta regla, pedida por el dueño:
+
+- Costo sin IVA = columna "Precio Lista (-DSV-Contado) Sin I.V.A" (precio de lista menos el D.S.V. y el descuento contado de la planilla).
+- Precio de venta = "P.S.V. Meli CLASSIC" + 20 %, redondeado al peso. En los productos con "PSV Liberado" la lista trae el P.S.V. en 0: se calcula con la misma cuenta de la planilla (costo con IVA × (1 + "Porcentaje P.S.V")).
+
 ### Importación de catálogo desde Excel
 
 Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin puede importar; repartidor solo puede buscar en el catálogo ya cargado.
+
+**Ojo:** este importador toma el "Precio Lista" del proveedor como precio de venta y no carga costos, así que no aplica la regla de arriba (y `exceljs` no lee `.xls`). Para actualizar la lista de Dowen Pagio con esa regla hay que hacerlo aparte o adaptar el importador.
 
 ### Asistente de IA
 

@@ -63,6 +63,18 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 /** Repartidores y vendedores: solo ven y cargan lo propio. */
 const isRepartidor = (ctx: ToolContext) => ctx.user.role !== 'admin';
 
+// Costo de un producto para el admin: se guarda sin IVA (como en la lista del proveedor); el
+// precio de venta es final, con IVA, así que la ganancia se mide contra el costo con IVA.
+function costFields(unitPrice: number, costPrice: number | null, ivaRate: number) {
+  if (costPrice === null) return { costo_sin_iva: null };
+  const full = Math.round(costPrice * (1 + ivaRate / 100) * 100) / 100;
+  return {
+    costo_sin_iva: costPrice,
+    costo_con_iva: full,
+    ...(full > 0 ? { ganancia_pct: Math.round((unitPrice / full - 1) * 1000) / 10 } : {}),
+  };
+}
+
 const dateField = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Usá el formato AAAA-MM-DD.')
@@ -227,7 +239,7 @@ const buscarProductos = defineTool({
   kind: 'read',
   roles: BOTH,
   description:
-    'Busca productos activos del catálogo con su precio, stock e IVA (y costo, solo para administradores). Usala siempre antes de responder sobre precios o stock, y antes de modificar un producto para obtener su código exacto.',
+    'Busca productos activos del catálogo con su precio de venta (final, con IVA), stock e IVA; solo para administradores, también el costo sin IVA, el costo con IVA y la ganancia sobre el costo con IVA. Usala siempre antes de responder sobre precios o stock, y antes de modificar un producto para obtener su código exacto.',
   schema: z.object({
     ...productFilterSchema,
     stock: z.enum(['todos', 'sin_stock', 'con_stock']).optional().describe('Filtrar por stock. Por defecto "todos".'),
@@ -248,7 +260,7 @@ const buscarProductos = defineTool({
           precio: p.unitPrice,
           stock: p.stock,
           iva: p.ivaRate,
-          ...(hideCost ? {} : { costo: p.costPrice }),
+          ...(hideCost ? {} : costFields(p.unitPrice, p.costPrice, p.ivaRate)),
         })),
       },
       summary: total === rows.length ? plural(total, 'producto encontrado', 'productos encontrados') : `${total} productos (mostrando ${rows.length})`,
@@ -788,12 +800,12 @@ const guardarProducto = defineTool({
   kind: 'write',
   roles: ADMIN,
   description:
-    'Crea un producto nuevo o modifica uno existente (descripción, precio de venta, costo, IVA). Solo cambia los campos que mandes. Para crear uno nuevo hacen falta código, descripción y precio. Para el stock de un producto existente usá ajustar_stock; para cambiar el precio de muchos productos a la vez usá actualizar_precios.',
+    'Crea un producto nuevo o modifica uno existente (descripción, precio de venta, costo sin IVA, IVA). Solo cambia los campos que mandes. Para crear uno nuevo hacen falta código, descripción y precio. Para el stock de un producto existente usá ajustar_stock; para cambiar el precio de muchos productos a la vez usá actualizar_precios.',
   schema: z.object({
     codigo: z.string().trim().min(1).describe('Código del producto (exacto).'),
     descripcion: z.string().trim().min(1).optional(),
-    precio: z.number().nonnegative().optional().describe('Precio de venta en pesos.'),
-    costo: z.number().nonnegative().nullable().optional().describe('Precio de costo en pesos (null para borrarlo).'),
+    precio: z.number().nonnegative().optional().describe('Precio de venta final (con IVA) en pesos.'),
+    costo: z.number().nonnegative().nullable().optional().describe('Costo SIN IVA en pesos, como viene en la lista del proveedor (null para borrarlo).'),
     iva: z.number().min(0).max(100).optional().describe('Alícuota de IVA en % (ej: 21 o 10.5).'),
     stockInicial: z.number().int().nonnegative().optional().describe('Solo al crear un producto nuevo.'),
   }),
@@ -803,7 +815,7 @@ const guardarProducto = defineTool({
       const lines = [
         diff('Descripción', p.description, input.descripcion),
         diff('Precio', p.unitPrice, input.precio, fmtMoney),
-        diff('Costo', p.costPrice, input.costo, (v: number | null) => (v === null ? 'sin costo' : fmtMoney(v))),
+        diff('Costo sin IVA', p.costPrice, input.costo, (v: number | null) => (v === null ? 'sin costo' : fmtMoney(v))),
         diff('IVA', p.ivaRate, input.iva, (v: number) => `${v}%`),
       ].filter((l): l is string => !!l);
       if (lines.length === 0) return { ok: false, error: `El producto ${p.code} ya tiene esos valores; no hay nada para cambiar.` };
@@ -823,7 +835,7 @@ const guardarProducto = defineTool({
       details: [
         `Descripción: ${input.descripcion}`,
         `Precio: ${fmtMoney(input.precio)}`,
-        ...(input.costo != null ? [`Costo: ${fmtMoney(input.costo)}`] : []),
+        ...(input.costo != null ? [`Costo sin IVA: ${fmtMoney(input.costo)}`] : []),
         `IVA: ${input.iva ?? 21}%`,
         `Stock inicial: ${input.stockInicial ?? 0}`,
       ],

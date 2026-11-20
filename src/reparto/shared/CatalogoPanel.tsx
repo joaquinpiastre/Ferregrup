@@ -10,6 +10,19 @@ interface Props {
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+
+// El costo se guarda sin IVA (como viene en la lista del proveedor) y el precio de venta es el
+// precio final, con IVA. La ganancia se mide contra el costo con IVA.
+function costWithIva(cost: number, ivaRate: number): number {
+  return cost * (1 + ivaRate / 100);
+}
+function gain(price: number, cost: number | undefined, ivaRate: number): { amount: number; pct: number } | null {
+  if (cost === undefined || !(cost > 0)) return null;
+  const full = costWithIva(cost, ivaRate);
+  return { amount: price - full, pct: (price / full - 1) * 100 };
+}
+const pctText = (pct: number) => `${Math.round(pct)}%`;
+
 const emptyForm = () => ({ code: '', description: '', unitPrice: '', stock: '0', costPrice: '', ivaRate: '21' });
 const PREVIEW_LIMIT = 25;
 const IVA_OPTIONS = [
@@ -49,6 +62,16 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
     return products.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
   }, [products, search]);
   const filtered = matches.slice(0, ROW_LIMIT);
+
+  // Cuenta en vivo del formulario: costo con IVA y ganancia con el precio cargado.
+  const formGain = (() => {
+    const cost = Number(form.costPrice.replace(',', '.'));
+    const price = Number(form.unitPrice.replace(',', '.'));
+    const iva = Number(form.ivaRate);
+    if (!form.costPrice.trim() || !form.unitPrice.trim() || !Number.isFinite(price) || !Number.isFinite(iva)) return null;
+    const g = gain(price, cost, iva);
+    return g && { ...g, full: costWithIva(cost, iva) };
+  })();
 
   async function save() {
     const price = Number(form.unitPrice.replace(',', '.'));
@@ -235,7 +258,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
               <input className="input-field" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
             <div>
-              <label>Precio de venta</label>
+              <label>Precio de venta (con IVA)</label>
               <input className="input-field" inputMode="decimal" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
             </div>
             <div>
@@ -243,7 +266,7 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
               <input className="input-field" inputMode="numeric" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
             </div>
             <div>
-              <label>Costo (opcional)</label>
+              <label>Costo sin IVA (opcional)</label>
               <input className="input-field" inputMode="decimal" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
             </div>
             <div>
@@ -253,6 +276,14 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
               </select>
             </div>
           </div>
+          {formGain && (
+            <div style={{ color: '#999', fontSize: 13, marginTop: 10 }}>
+              Costo con IVA {fmt(formGain.full)} · Ganancia{' '}
+              <span style={{ color: formGain.amount >= 0 ? '#4ade80' : '#f87171', fontWeight: 600 }}>
+                {fmt(formGain.amount)} ({pctText(formGain.pct)})
+              </span>
+            </div>
+          )}
           {error && <div style={{ color: '#f87171', fontSize: 13, marginTop: 10 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
             <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
@@ -268,28 +299,57 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
           <table>
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Descripción</th>
-                <th style={{ textAlign: 'right' }}>Precio</th>
-                <th style={{ textAlign: 'right' }}>Stock</th>
-                <th style={{ textAlign: 'right' }}>IVA</th>
-                {canEdit && <th style={{ textAlign: 'right' }}>Costo</th>}
+                {/* El código (y para repartidores y vendedores, el stock) va debajo del nombre, para que
+                    en el celular el precio entre en la pantalla. */}
+                <th>Producto</th>
+                <th style={{ textAlign: 'right' }}>{canEdit ? 'Precio venta' : 'Precio'}</th>
+                {canEdit && <th style={{ textAlign: 'right' }}>Stock</th>}
+                {canEdit && <th style={{ textAlign: 'right' }}>IVA</th>}
+                {canEdit && <th style={{ textAlign: 'right' }}>Costo s/IVA</th>}
+                {canEdit && <th style={{ textAlign: 'right' }}>Costo c/IVA</th>}
+                {canEdit && <th style={{ textAlign: 'right' }}>Ganancia</th>}
                 {canEdit && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {filtered.map((p) => {
+                const g = canEdit ? gain(p.unitPrice, p.costPrice, p.ivaRate) : null;
+                return (
                 <tr key={p.code} onClick={() => canEdit && openEdit(p)} style={canEdit ? { cursor: 'pointer' } : undefined}>
-                  <td style={{ fontFamily: 'monospace', color: '#888' }}>{p.code}</td>
-                  <td style={{ color: '#fff' }}>{p.description}</td>
-                  <td style={{ textAlign: 'right', color: '#FE4806', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(p.unitPrice)}</td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {p.stock <= 0 ? <span className="badge badge-red">Sin stock</span> : p.stock}
+                  {/* Algunas descripciones traen palabras larguísimas sin espacios ("71/10(9.10X10mm)10.000U.P/802402"):
+                      se dejan cortar para que no ensanchen la tabla. */}
+                  <td style={{ overflowWrap: 'anywhere' }}>
+                    <div style={{ color: '#fff' }}>{p.description}</div>
+                    <div style={{ color: '#777', fontSize: 11, marginTop: 2 }}>
+                      <span style={{ fontFamily: 'monospace' }}>{p.code}</span>
+                      {!canEdit && (p.stock <= 0 ? <span style={{ color: '#f87171' }}> · sin stock</span> : ` · stock ${p.stock}`)}
+                    </div>
                   </td>
-                  <td style={{ textAlign: 'right', color: '#999', whiteSpace: 'nowrap' }}>{p.ivaRate === 0 ? 'Exento' : `${p.ivaRate}%`}</td>
+                  <td style={{ textAlign: 'right', color: '#FE4806', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmt(p.unitPrice)}</td>
+                  {canEdit && (
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {p.stock <= 0 ? <span className="badge badge-red">Sin stock</span> : p.stock}
+                    </td>
+                  )}
+                  {canEdit && (
+                    <td style={{ textAlign: 'right', color: '#999', whiteSpace: 'nowrap' }}>{p.ivaRate === 0 ? 'Exento' : `${p.ivaRate}%`}</td>
+                  )}
                   {canEdit && (
                     <td style={{ textAlign: 'right', color: '#999', whiteSpace: 'nowrap' }}>
                       {p.costPrice !== undefined ? fmt(p.costPrice) : '—'}
+                    </td>
+                  )}
+                  {canEdit && (
+                    <td style={{ textAlign: 'right', color: '#ccc', whiteSpace: 'nowrap' }}>
+                      {p.costPrice !== undefined ? fmt(costWithIva(p.costPrice, p.ivaRate)) : '—'}
+                    </td>
+                  )}
+                  {canEdit && (
+                    <td
+                      style={{ textAlign: 'right', whiteSpace: 'nowrap', color: g ? (g.amount >= 0 ? '#4ade80' : '#f87171') : '#666' }}
+                      title={g ? `${fmt(g.amount)} por unidad` : undefined}
+                    >
+                      {g ? pctText(g.pct) : '—'}
                     </td>
                   )}
                   {canEdit && (
@@ -298,7 +358,8 @@ export default function CatalogoPanel({ token, canEdit }: Props) {
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {matches.length > filtered.length && (
