@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { CatalogProduct, StreetOrderItem } from '../types';
+import { buildSearchIndex, searchProducts } from './catalogSearch';
 
 interface Props {
   catalog: CatalogProduct[];
@@ -8,7 +9,8 @@ interface Props {
   onItemsChange: (items: StreetOrderItem[]) => void;
 }
 
-const fmt = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
+const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+const fmt = (n: number) => money.format(n);
 
 export default function ProductItemPicker({ catalog, items, onItemsChange }: Props) {
   const [productQuery, setProductQuery] = useState('');
@@ -19,11 +21,11 @@ export default function ProductItemPicker({ catalog, items, onItemsChange }: Pro
 
   const catalogByCode = useMemo(() => new Map(catalog.map((p) => [p.code, p])), [catalog]);
 
+  const searchIndex = useMemo(() => buildSearchIndex(catalog), [catalog]);
   const productSuggestions = useMemo(() => {
-    const q = productQuery.trim().toLowerCase();
-    if (q.length < 2 || selectedCode) return [];
-    return catalog.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)).slice(0, 6);
-  }, [productQuery, catalog, selectedCode]);
+    if (productQuery.trim().length < 2 || selectedCode) return [];
+    return searchProducts(catalog, searchIndex, productQuery, { limit: 6 });
+  }, [productQuery, catalog, searchIndex, selectedCode]);
 
   function pickProduct(p: CatalogProduct) {
     setProductQuery(p.description);

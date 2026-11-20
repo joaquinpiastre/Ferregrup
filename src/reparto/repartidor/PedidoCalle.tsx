@@ -3,6 +3,7 @@ import { Plus, Send, Trash2, PackageCheck } from 'lucide-react';
 import { sameStreet } from '../address';
 import { createStreetOrder, fetchCatalog, subscribeClients, updateStreetOrderStatus } from '../api';
 import type { CatalogProduct, FieldClient, Session, StreetOrder, StreetOrderItem } from '../types';
+import { buildSearchIndex, searchProducts } from '../shared/catalogSearch';
 
 interface Props {
   session: Session;
@@ -49,11 +50,11 @@ export default function PedidoCalle({ session, orders, onOrderCreated, onOrderCh
     return clients.filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)).slice(0, 6);
   }, [clientQuery, clients]);
 
+  const searchIndex = useMemo(() => buildSearchIndex(catalog), [catalog]);
   const productSuggestions = useMemo(() => {
-    const q = productQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return catalog.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)).slice(0, 6);
-  }, [productQuery, catalog]);
+    if (productQuery.trim().length < 2) return [];
+    return searchProducts(catalog, searchIndex, productQuery, { limit: 6 });
+  }, [productQuery, catalog, searchIndex]);
 
   const nearbyClients = useMemo(() => {
     if (!streetLabel.trim()) return [];

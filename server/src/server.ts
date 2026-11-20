@@ -8,7 +8,6 @@ import { authRouter } from './routes/auth.js';
 import { streetOrdersRouter } from './routes/streetOrders.js';
 import { clientsRouter } from './routes/clients.js';
 import { catalogRouter } from './routes/catalog.js';
-import { catalogImportRouter } from './routes/catalogImport.js';
 import { routeStopsRouter } from './routes/routeStops.js';
 import { shiftsRouter } from './routes/shifts.js';
 import { paymentsRouter } from './routes/payments.js';
@@ -75,7 +74,6 @@ for (const router of [
   streetOrdersRouter,
   clientsRouter,
   catalogRouter,
-  catalogImportRouter,
   routeStopsRouter,
   shiftsRouter,
   paymentsRouter,

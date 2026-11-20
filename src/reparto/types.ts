@@ -65,6 +65,8 @@ export interface CatalogProduct {
   stock: number;
   costPrice?: number;
   ivaRate: number;
+  /** De qué proveedor sale (solo llega para el admin). */
+  supplier?: string;
 }
 
 // ─── Rutas del día ──────────────────────────────────────────────────────────

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Boxes, Check, PackagePlus, Pencil, Search, X } from 'lucide-react';
 import { adjustStock, fetchCatalog } from '../api';
 import type { CatalogProduct } from '../types';
+import { buildSearchIndex, searchProducts } from '../shared/catalogSearch';
 
 interface Props {
   token: string;
@@ -9,7 +10,8 @@ interface Props {
   readOnly?: boolean;
 }
 
-const fmtPrice = (n: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(n);
+const money = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' });
+const fmtPrice = (n: number) => money.format(n);
 
 type Filter = 'todos' | 'sin' | 'con';
 type EditMode = 'add' | 'set';
@@ -32,12 +34,16 @@ export default function StockPanel({ token, readOnly = false }: Props) {
 
   const sinStock = useMemo(() => products.filter((p) => p.stock <= 0).length, [products]);
 
-  const matches = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return products
-      .filter((p) => filter === 'todos' || (filter === 'sin' ? p.stock <= 0 : p.stock > 0))
-      .filter((p) => !q || p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
-  }, [products, search, filter]);
+  const searchIndex = useMemo(() => buildSearchIndex(products), [products]);
+  // La lista se actualiza "atrás" de lo que se escribe, así el cuadro de búsqueda no se traba.
+  const deferredSearch = useDeferredValue(search);
+  const matches = useMemo(
+    () =>
+      searchProducts(products, searchIndex, deferredSearch, {
+        keep: filter === 'todos' ? undefined : (p) => (filter === 'sin' ? p.stock <= 0 : p.stock > 0),
+      }),
+    [products, searchIndex, deferredSearch, filter]
+  );
   const visible = matches.slice(0, ROW_LIMIT);
 
   function startEdit(code: string, mode: EditMode) {

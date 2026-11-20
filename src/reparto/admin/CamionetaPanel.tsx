@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownToLine, Check, PackageMinus, Plus, Search, Truck, Undo2, X } from 'lucide-react';
 import { fetchCatalog, fetchStaffList, fetchVan, moveVanStock } from '../api';
 import type { CatalogProduct, Staff, VanItem, VanMovement, VanMovementKind } from '../types';
+import { buildSearchIndex, searchProducts } from '../shared/catalogSearch';
 
 interface Props {
   token: string;
@@ -59,11 +60,11 @@ export default function CamionetaPanel({ token }: Props) {
   const couriers = useMemo(() => staff.filter((s) => s.role === 'repartidor'), [staff]);
   const totalUnits = items.reduce((sum, i) => sum + i.quantity, 0);
 
+  const searchIndex = useMemo(() => buildSearchIndex(catalog), [catalog]);
   const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return catalog.filter((p) => p.description.toLowerCase().includes(q) || p.code.toLowerCase().includes(q)).slice(0, 8);
-  }, [catalog, query]);
+    if (query.trim().length < 2) return [];
+    return searchProducts(catalog, searchIndex, query, { limit: 8 });
+  }, [catalog, searchIndex, query]);
 
   function openLoad() {
     setShowLoad(true);

@@ -8,17 +8,19 @@ export const catalogRouter = Router();
 
 catalogRouter.get('/catalog', requireAuth, async (req, res) => {
   const { rows } = await pool.query(
-    `select code, description, unit_price as "unitPrice", stock, cost_price as "costPrice", iva_rate as "ivaRate"
+    `select code, description, unit_price as "unitPrice", stock, cost_price as "costPrice", iva_rate as "ivaRate", supplier
      from catalog_products where active = true order by description`
   );
-  // El costo solo lo ve el admin.
+  // El costo y el proveedor solo los ve el admin.
+  const isAdmin = req.user?.role === 'admin';
   res.json({
     products: rows.map((r) => ({
       ...r,
       unitPrice: Number(r.unitPrice),
       stock: Number(r.stock),
       ivaRate: Number(r.ivaRate),
-      costPrice: req.user?.role !== 'admin' || r.costPrice === null ? undefined : Number(r.costPrice),
+      costPrice: !isAdmin || r.costPrice === null ? undefined : Number(r.costPrice),
+      supplier: !isAdmin || r.supplier === null ? undefined : r.supplier,
     })),
   });
 });
@@ -30,6 +32,7 @@ const productSchema = z.object({
   stock: z.number().int().nonnegative().default(0),
   costPrice: z.number().nonnegative().optional(),
   ivaRate: z.number().nonnegative().default(21),
+  supplier: z.string().trim().max(80).optional(),
 });
 
 catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, res) => {
@@ -42,14 +45,14 @@ catalogRouter.post('/catalog', requireAuth, requireRole('admin'), async (req, re
   // Alta de un producto nuevo (o reactivación de uno dado de baja). Un producto activo no se
   // pisa desde acá: se edita con PATCH /catalog/:code y el stock con PATCH /catalog/:code/stock.
   const result = await pool.query(
-    `insert into catalog_products (code, description, unit_price, stock, cost_price, iva_rate, active, updated_at)
-     values ($1,$2,$3,$4,$5,$6,true,now())
+    `insert into catalog_products (code, description, unit_price, stock, cost_price, iva_rate, supplier, active, updated_at)
+     values ($1,$2,$3,$4,$5,$6,$7,true,now())
      on conflict (code) do update set
        description = excluded.description, unit_price = excluded.unit_price,
        stock = excluded.stock, cost_price = excluded.cost_price, iva_rate = excluded.iva_rate,
-       active = true, updated_at = now()
+       supplier = excluded.supplier, active = true, updated_at = now()
      where catalog_products.active = false`,
-    [p.code, p.description, p.unitPrice, p.stock, p.costPrice ?? null, p.ivaRate]
+    [p.code, p.description, p.unitPrice, p.stock, p.costPrice ?? null, p.ivaRate, p.supplier || null]
   );
   if (result.rowCount === 0) {
     res.status(409).json({ error: `Ya existe un producto con el código ${p.code}. Editalo desde la lista.` });
@@ -67,6 +70,7 @@ const productPatchSchema = z
     unitPrice: z.number().nonnegative().optional(),
     costPrice: z.number().nonnegative().nullable().optional(),
     ivaRate: z.number().nonnegative().optional(),
+    supplier: z.string().trim().max(80).nullable().optional(),
   })
   .refine((p) => Object.values(p).some((v) => v !== undefined), { message: 'Enviá al menos un campo para actualizar.' });
 
@@ -83,10 +87,20 @@ catalogRouter.patch('/catalog/:code', requireAuth, requireRole('admin'), async (
        unit_price = coalesce($3, unit_price),
        cost_price = case when $4::boolean then $5 else cost_price end,
        iva_rate = coalesce($6, iva_rate),
+       supplier = case when $7::boolean then $8 else supplier end,
        updated_at = now()
      where code = $1 and active = true
      returning description, unit_price as "unitPrice"`,
-    [req.params.code, p.description ?? null, p.unitPrice ?? null, p.costPrice !== undefined, p.costPrice ?? null, p.ivaRate ?? null]
+    [
+      req.params.code,
+      p.description ?? null,
+      p.unitPrice ?? null,
+      p.costPrice !== undefined,
+      p.costPrice ?? null,
+      p.ivaRate ?? null,
+      p.supplier !== undefined,
+      p.supplier || null,
+    ]
   );
   if (rows.length === 0) {
     res.status(404).json({ error: 'Producto no encontrado.' });
@@ -97,6 +111,7 @@ catalogRouter.patch('/catalog/:code', requireAuth, requireRole('admin'), async (
     p.unitPrice !== undefined && `precio $${p.unitPrice}`,
     p.costPrice !== undefined && 'costo',
     p.ivaRate !== undefined && `IVA ${p.ivaRate}%`,
+    p.supplier !== undefined && 'proveedor',
   ].filter(Boolean);
   await logActivity(req.user!, 'product.update', `Editó ${req.params.code} · ${rows[0].description} (${changes.join(', ')})`);
   res.json({ ok: true, unitPrice: Number(rows[0].unitPrice) });

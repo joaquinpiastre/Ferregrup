@@ -39,20 +39,17 @@ El **mapa en vivo** (panel admin) funciona hoy por navegador: mientras el repart
 
 El soporte para **trackers GPS físicos (protocolo GT06)** está en el código (`server/src/gpsTracker/gt06.ts`, pantalla admin → Trackers) pero el servidor TCP que habla ese protocolo **está deshabilitado en producción por ahora**: al ponerlo en el mismo servicio de Railway que sirve la API HTTP, el proxy TCP que Railway arma para exponerlo entró en conflicto con el puerto de la propia API y tumbó todo el backend un rato. Para reactivarlo correctamente hay que correr ese listener en un servicio de Railway aparte (con su propio proxy TCP), no en `ferregrup-api`. Mientras tanto, la sección Trackers del panel admin sigue funcionando para registrar IMEIs, pero ningún dispositivo real puede conectarse todavía.
 
-### Catálogo: costo, IVA y precio de venta
+### Catálogo: costo, IVA, precio de venta y proveedor
 
-Cada producto tiene **precio de venta** (final, con IVA: es lo que ven y cobran repartidores y vendedores), **IVA** y **costo sin IVA** (como viene en la lista del proveedor). El costo solo lo ve el admin (la API no lo manda a otros roles, y el asistente de IA tampoco lo muestra). En Catálogo el admin ve además el **costo con IVA** (costo × (1 + IVA)) y la **ganancia** en %, medida contra el costo con IVA.
+Cada producto tiene **precio de venta** (final, con IVA: es lo que ven y cobran repartidores y vendedores), **IVA**, **costo sin IVA** y **proveedor** (de qué lista sale). Costo y proveedor solo los ve el admin: la API no los manda a otros roles y el asistente de IA tampoco los muestra. En Catálogo el admin ve además el **costo con IVA** (costo × (1 + IVA)) y la **ganancia** en %, medida contra el costo con IVA, y puede filtrar por proveedor.
 
-El 19/11/2026 se cargó el catálogo con la lista de **Dowen Pagio / BTA** (`f-lista-de-precios-vigente.xls`, hoja "Lista Precios General", 2.900 productos) con esta regla, pedida por el dueño:
+El catálogo se arma con las listas de precios de cada proveedor. Cada proveedor tiene su propia regla para sacar de su lista el costo y el precio de venta (descuentos, envío, IVA, ganancia). Esas reglas son datos del negocio y no se guardan en el repo. Al actualizar una lista hay que aplicar la regla de ese proveedor y tocar solo sus productos; en cada carga conviene controlar que los códigos no choquen con los de otra lista.
 
-- Costo sin IVA = columna "Precio Lista (-DSV-Contado) Sin I.V.A" (precio de lista menos el D.S.V. y el descuento contado de la planilla).
-- Precio de venta = "P.S.V. Meli CLASSIC" + 20 %, redondeado al peso. En los productos con "PSV Liberado" la lista trae el P.S.V. en 0: se calcula con la misma cuenta de la planilla (costo con IVA × (1 + "Porcentaje P.S.V")).
+La búsqueda de productos (`src/reparto/shared/catalogSearch.ts`) es la misma en todas las pantallas. Arma una sola vez el texto de búsqueda de cada producto y encuentra las palabras en cualquier orden ("taladro bosch"), porque el catálogo tiene miles de productos.
 
-### Importación de catálogo desde Excel
+### Importación de catálogo desde Excel (se sacó)
 
-Panel admin → Catálogo → **Importar Excel**: sube la "Lista de precio vigente" del proveedor (`.xlsx`), muestra una vista previa (código, descripción, precio) y al confirmar **reemplaza** el catálogo completo — lo que no está en el archivo queda inactivo. El parseo es del lado del servidor (`server/src/routes/catalogImport.ts`, con `exceljs`) y detecta automáticamente la fila de encabezados y las columnas Código/Descripción/Precio Lista, tolerando el formato real del archivo del proveedor (encabezados no están en la fila 1, hay columnas de fórmulas intermedias, etc.). Solo admin puede importar; repartidor solo puede buscar en el catálogo ya cargado.
-
-**Ojo:** este importador toma el "Precio Lista" del proveedor como precio de venta y no carga costos, así que no aplica la regla de arriba (y `exceljs` no lee `.xls`). Para actualizar la lista de Dowen Pagio con esa regla hay que hacerlo aparte o adaptar el importador.
+Hasta noviembre de 2026 Catálogo tenía un botón **Importar Excel** que reemplazaba el catálogo entero con un archivo. Ese botón tomaba el precio de lista del proveedor como precio de venta, no cargaba costos y daba de baja todo lo que no estuviera en el archivo. Con varias listas de proveedores, cada una con su regla de precios, eso pisaba los precios de venta y daba de baja los productos de los otros proveedores, así que se sacaron el botón y la ruta `/catalog/import/*`.
 
 ### Asistente de IA
 

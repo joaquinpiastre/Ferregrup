@@ -105,6 +105,7 @@ interface ProductRow {
   stock: number;
   costPrice: number | null;
   ivaRate: number;
+  supplier: string | null;
   total: number;
 }
 
@@ -138,7 +139,7 @@ async function findProducts(
     limitSql = `limit $${params.length}`;
   }
   const { rows } = await pool.query(
-    `select code, description, unit_price as "unitPrice", stock, cost_price as "costPrice", iva_rate as "ivaRate",
+    `select code, description, unit_price as "unitPrice", stock, cost_price as "costPrice", iva_rate as "ivaRate", supplier,
        count(*) over () as total
      from catalog_products where ${where.join(' and ')}
      order by description ${limitSql}`,
@@ -239,7 +240,7 @@ const buscarProductos = defineTool({
   kind: 'read',
   roles: BOTH,
   description:
-    'Busca productos activos del catálogo con su precio de venta (final, con IVA), stock e IVA; solo para administradores, también el costo sin IVA, el costo con IVA y la ganancia sobre el costo con IVA. Usala siempre antes de responder sobre precios o stock, y antes de modificar un producto para obtener su código exacto.',
+    'Busca productos activos del catálogo con su precio de venta (final, con IVA), stock e IVA; solo para administradores, también el proveedor, el costo sin IVA, el costo con IVA y la ganancia sobre el costo con IVA. Usala siempre antes de responder sobre precios o stock, y antes de modificar un producto para obtener su código exacto.',
   schema: z.object({
     ...productFilterSchema,
     stock: z.enum(['todos', 'sin_stock', 'con_stock']).optional().describe('Filtrar por stock. Por defecto "todos".'),
@@ -260,7 +261,7 @@ const buscarProductos = defineTool({
           precio: p.unitPrice,
           stock: p.stock,
           iva: p.ivaRate,
-          ...(hideCost ? {} : costFields(p.unitPrice, p.costPrice, p.ivaRate)),
+          ...(hideCost ? {} : { ...costFields(p.unitPrice, p.costPrice, p.ivaRate), proveedor: p.supplier }),
         })),
       },
       summary: total === rows.length ? plural(total, 'producto encontrado', 'productos encontrados') : `${total} productos (mostrando ${rows.length})`,

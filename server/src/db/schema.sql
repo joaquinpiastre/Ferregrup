@@ -261,6 +261,8 @@ create index if not exists idx_activity_log_staff on activity_log (staff_id, cre
 alter table catalog_products add column if not exists stock integer not null default 0;
 alter table catalog_products add column if not exists cost_price numeric(12,2);
 alter table catalog_products add column if not exists iva_rate numeric(5,2) not null default 21;
+-- De qué proveedor (de qué lista) sale el producto. Como el costo, lo ve solo el admin.
+alter table catalog_products add column if not exists supplier text;
 
 -- ─── Ítems de venta (las ventas ahora son por producto, no un monto suelto) ─────
 
